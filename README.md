@@ -8,9 +8,9 @@ Command-line tool for local development, testing, and operations of the Synheart
 
 - Python 3.11 or higher
 - pip (Python package manager)
-- Access to the parent repository structure (if using local dependencies)
-  - This CLI tool expects to be part of a monorepo with `libs/py-cloud-connector` and `libs/py-normalize` directories
-  - For standalone installation, ensure these dependencies are available
+- Access to the internal libraries (included in this repository):
+  - `libs/py-cloud-connector`: OAuth token management for wearable vendors
+  - `libs/py-normalize`: Data normalization utilities for vendor-specific formats
 
 ## 🚀 Installation
 
@@ -37,6 +37,28 @@ wear --help
 # From the repository root
 python3 wear.py --help
 ```
+
+## 📚 Internal Libraries
+
+### py-cloud-connector
+
+OAuth token management for wearable vendors with DynamoDB + KMS encryption.
+
+- **VendorType**: Enum for supported vendors (whoop, garmin, fitbit)
+- **TokenStore**: DynamoDB-based token storage with encryption
+- **TokenSet**: Standardized OAuth token data structure
+
+See [libs/py-cloud-connector/README.md](libs/py-cloud-connector/README.md) for details.
+
+### py-normalize
+
+Data normalization utilities for converting vendor-specific formats to standardized Synheart formats.
+
+- **DataNormalizer**: Converts vendor data to common format
+- **DataType**: Enum for data types (recovery, sleep, workout, etc.)
+- **NormalizedData**: Common data structure for all vendors
+
+See [libs/py-normalize/README.md](libs/py-normalize/README.md) for details.
 
 ## 📖 Commands
 
@@ -498,6 +520,39 @@ After installing the CLI:
    ```bash
    wear tokens list
    ```
+
+## 🧪 Testing
+
+The CLI includes a test suite to ensure functionality.
+
+### Running Tests
+
+```bash
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Run all tests
+pytest
+
+# Run tests with coverage
+pytest --cov=wear --cov-report=html
+
+# Run specific test file
+pytest tests/test_cli.py -v
+```
+
+### Test Structure
+
+```
+tests/
+├── __init__.py
+└── test_cli.py         # Basic CLI command tests
+```
+
+All tests passing:
+- ✅ Help command
+- ✅ Version command
+- ✅ All subcommands (start, webhook, pull, tokens, deploy)
 
 ## 📝 Notes
 

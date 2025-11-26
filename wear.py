@@ -28,10 +28,13 @@ from rich.console import Console
 from rich.table import Table
 from rich import print as rprint
 
-# Add libs to path
-REPO_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(REPO_ROOT / "libs" / "py-cloud-connector"))
-sys.path.insert(0, str(REPO_ROOT / "libs" / "py-normalize"))
+# Add libs to path (local to CLI)
+CLI_ROOT = Path(__file__).parent
+REPO_ROOT = CLI_ROOT.parent
+if (CLI_ROOT / "libs" / "py-cloud-connector").exists():
+    sys.path.insert(0, str(CLI_ROOT / "libs" / "py-cloud-connector"))
+if (CLI_ROOT / "libs" / "py-normalize").exists():
+    sys.path.insert(0, str(CLI_ROOT / "libs" / "py-normalize"))
 
 app = typer.Typer(
     name="wear",
@@ -322,7 +325,7 @@ def start(
 
     # Set environment
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{REPO_ROOT}/libs/py-cloud-connector:{REPO_ROOT}/libs/py-normalize:{env.get('PYTHONPATH', '')}"
+    env["PYTHONPATH"] = f"{CLI_ROOT}/libs/py-cloud-connector:{CLI_ROOT}/libs/py-normalize:{env.get('PYTHONPATH', '')}"
     
     # Enable dev mode features
     if mode == "dev":
@@ -1078,8 +1081,14 @@ def tokens_list(
     console.print("🔑 Listing OAuth tokens...")
     console.print()
 
-    # Query DynamoDB (or mock store in dev)
-    from synheart_cloud_connector.tokens import TokenStore
+    try:
+        from synheart_cloud_connector.tokens import TokenStore
+    except ImportError:
+        console.print("[red]❌ synheart_cloud_connector library not found[/red]")
+        console.print()
+        console.print("[yellow]This command requires the py-cloud-connector library.[/yellow]")
+        console.print("Please install it or ensure it's available in ../libs/py-cloud-connector")
+        raise typer.Exit(1)
 
     table_name = os.getenv("DYNAMODB_TABLE", "test_cloud_connector_tokens")
     kms_key_id = os.getenv("KMS_KEY_ID")
@@ -1116,8 +1125,15 @@ def tokens_refresh(
     console.print(f"🔄 Refreshing token for [cyan]{vendor}[/cyan] user [cyan]{user_id}[/cyan]...")
     console.print()
 
-    from synheart_cloud_connector.tokens import TokenStore
-    from synheart_cloud_connector.vendor_types import VendorType
+    try:
+        from synheart_cloud_connector.tokens import TokenStore
+        from synheart_cloud_connector.vendor_types import VendorType
+    except ImportError:
+        console.print("[red]❌ synheart_cloud_connector library not found[/red]")
+        console.print()
+        console.print("[yellow]This command requires the py-cloud-connector library.[/yellow]")
+        console.print("Please install it or ensure it's available in ../libs/py-cloud-connector")
+        raise typer.Exit(1)
 
     table_name = os.getenv("DYNAMODB_TABLE", "test_cloud_connector_tokens")
     kms_key_id = os.getenv("KMS_KEY_ID")
@@ -1173,11 +1189,15 @@ def tokens_revoke(
     console.print(f"🗑️  Revoking token for [cyan]{vendor}[/cyan] user [cyan]{user_id}[/cyan]...")
     console.print()
 
-    from synheart_cloud_connector.vendor_types import VendorType
-
-    # VendorType enum values are lowercase ("whoop", "garmin")
-    vendor_enum = VendorType(vendor.lower())
-    token_key = f"{vendor_enum.value}:{user_id}"
+    try:
+        from synheart_cloud_connector.vendor_types import VendorType
+        # VendorType enum values are lowercase ("whoop", "garmin")
+        vendor_enum = VendorType(vendor.lower())
+        token_key = f"{vendor_enum.value}:{user_id}"
+    except ImportError:
+        # Fallback to simple string key if library not available
+        vendor_enum = None
+        token_key = f"{vendor.lower()}:{user_id}"
 
     # Try to use local file-based storage first (for dev mode)
     tokens_file = REPO_ROOT / "__dev__" / "tokens.json"
@@ -1228,7 +1248,14 @@ def tokens_revoke(
     # Otherwise, try DynamoDB TokenStore
     try:
         from synheart_cloud_connector.tokens import TokenStore
-        
+    except ImportError:
+        console.print("[red]❌ synheart_cloud_connector library not found[/red]")
+        console.print()
+        console.print("[yellow]This command requires the py-cloud-connector library.[/yellow]")
+        console.print("Please install it or ensure it's available in ../libs/py-cloud-connector")
+        raise typer.Exit(1)
+
+    try:
         kms_key_id = os.getenv("KMS_KEY_ID")
         store = TokenStore(table_name=table_name, kms_key_id=kms_key_id)
 
