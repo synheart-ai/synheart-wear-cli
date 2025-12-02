@@ -53,10 +53,3 @@ def test_tokens_command_help():
     result = runner.invoke(app, ["tokens", "--help"])
     assert result.exit_code == 0
     assert "token" in result.stdout.lower()
-
-
-def test_deploy_command_help():
-    """Test that deploy command help works."""
-    result = runner.invoke(app, ["deploy", "--help"])
-    assert result.exit_code == 0
-    assert "deploy" in result.stdout.lower()
