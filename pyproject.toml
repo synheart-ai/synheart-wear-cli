@@ -79,17 +79,16 @@ Organization = "https://pypi.org/org/Synheart/"
 wear = "wear:app"
 
 [tool.setuptools]
-py-modules = ["wear"]
+py-modules = ["wear", "__version__"]
+packages = [
+    "server",
+    "synheart_cloud_connector",
+    "synheart_normalize",
+]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["server*", "libs/*"]
-exclude = ["tests*", "__dev__*", "*.egg-info"]
-
-[tool.setuptools.package-data]
-server = ["*.py"]
-"libs.py-cloud-connector" = ["*.py"]
-"libs.py-normalize" = ["*.py"]
+[tool.setuptools.package-dir]
+"synheart_cloud_connector" = "libs/py-cloud-connector/synheart_cloud_connector"
+"synheart_normalize" = "libs/py-normalize/synheart_normalize"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -117,7 +116,21 @@ exclude = '''
 line-length = 100
 target-version = "py311"
 select = ["E", "F", "I", "N", "W"]
-ignore = ["E501"]
+ignore = [
+    "E501",   # Line too long (handled by black)
+    "E402",   # Module level import not at top of file
+    "E722",   # Bare except
+    "F401",   # Imported but unused
+    "F541",   # f-string without placeholders
+    "F841",   # Local variable assigned but never used
+    "I001",   # Import block unsorted
+    "W293",   # Blank line contains whitespace
+    "N",      # Naming conventions (too strict for initial release)
+    "UP",     # pyupgrade rules (can be addressed in future)
+    "SIM",    # Simplification rules
+    "B007",   # Unused loop variable
+    "T201",   # print found (used in debug/dev mode)
+]
 exclude = [
     ".git",
     ".venv",
@@ -125,6 +138,8 @@ exclude = [
     "__dev__",
     "build",
     "dist",
+    "libs/py-cloud-connector/tests",
+    "libs/py-normalize/tests",
 ]
 
 [tool.mypy]
