@@ -218,7 +218,7 @@ from server.whoop_connector import WhoopConnector
 app = FastAPI(
     title="WHOOP Cloud Connector (Local Dev)",
     description="Local development version with mocked AWS services",
-    version="0.1.0-local",
+    version="0.1.1-local",
 )
 
 # Load configuration from test environment
@@ -270,7 +270,7 @@ async def health_check() -> dict[str, Any]:
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "version": "0.1.0-local",
+        "version": "0.1.1-local",
         "service": "whoop-cloud-connector",
         "mode": "local_dev",
         "checks": {
