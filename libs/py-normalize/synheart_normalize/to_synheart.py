@@ -1,6 +1,5 @@
 """Normalization functions to convert vendor data to Synheart schema."""
 
-from datetime import datetime
 from typing import Any
 
 from .schema import DataSource, SampleType, SynheartSample
