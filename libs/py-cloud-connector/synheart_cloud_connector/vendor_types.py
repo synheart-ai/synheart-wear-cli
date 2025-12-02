@@ -54,13 +54,13 @@ class OAuthTokens(BaseModel):
         if not self.expires_at:
             return False
         # Use timezone-aware datetime for comparison
-        from datetime import timezone
-        now = datetime.now(timezone.utc)
+        from datetime import UTC
+        now = datetime.now(UTC)
         # Ensure expires_at is timezone-aware for comparison
         expires_at = self.expires_at
         if expires_at.tzinfo is None:
             # If expires_at is naive, assume UTC
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
         return now >= expires_at
 
 

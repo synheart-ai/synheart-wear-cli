@@ -19,7 +19,7 @@ Usage:
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Lazy import boto3 - only import when actually needed
 try:
@@ -183,7 +183,7 @@ class SyncState:
             Updated SyncCursor
         """
         pk, sk = self._make_cursor_key(vendor, user_id)
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         # Get existing cursor to increment records_synced
         existing_cursor = self.get_cursor(vendor, user_id)
@@ -275,7 +275,7 @@ class SyncState:
         if self.local_mode:
             # Local mode: filter in-memory storage
             cursors = []
-            for key, cursor_data in self._local_cursors.items():
+            for cursor_data in self._local_cursors.values():
                 if vendor and cursor_data["vendor"] != vendor.value:
                     continue
                 cursors.append(SyncCursor(**cursor_data))

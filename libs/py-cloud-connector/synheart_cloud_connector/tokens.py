@@ -1,12 +1,11 @@
 """Token storage and management with DynamoDB and KMS encryption."""
 
 import base64
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 # Lazy import boto3 - only import when actually needed
 try:
-    import boto3
     from botocore.exceptions import ClientError
     HAS_BOTO3 = True
 except ImportError:
@@ -97,7 +96,7 @@ class TokenStore:
         Returns:
             TokenRecord with encrypted tokens
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = int(now.timestamp()) + tokens.expires_in
 
         # Encrypt tokens
@@ -164,8 +163,8 @@ class TokenStore:
                 self._decrypt(record.refresh_token) if record.refresh_token else None
             )
 
-            expires_at = datetime.fromtimestamp(record.expires_at, tz=timezone.utc)
-            expires_in = int((expires_at - datetime.now(timezone.utc)).total_seconds())
+            expires_at = datetime.fromtimestamp(record.expires_at, tz=UTC)
+            expires_in = int((expires_at - datetime.now(UTC)).total_seconds())
 
             return OAuthTokens(
                 access_token=access_token,
@@ -184,7 +183,7 @@ class TokenStore:
     def update_last_webhook(self, vendor: VendorType, user_id: str) -> None:
         """Update the last_webhook_at timestamp."""
         pk = f"{vendor.value}:{user_id}"
-        now = int(datetime.now(timezone.utc).timestamp())
+        now = int(datetime.now(UTC).timestamp())
 
         try:
             self.table.update_item(
@@ -201,7 +200,7 @@ class TokenStore:
     def update_last_pull(self, vendor: VendorType, user_id: str) -> None:
         """Update the last_pull_at timestamp."""
         pk = f"{vendor.value}:{user_id}"
-        now = int(datetime.now(timezone.utc).timestamp())
+        now = int(datetime.now(UTC).timestamp())
 
         try:
             self.table.update_item(
@@ -249,7 +248,7 @@ class TokenStore:
         Returns:
             List of user IDs
         """
-        cutoff = int(datetime.now(timezone.utc).timestamp()) - max_age_seconds
+        cutoff = int(datetime.now(UTC).timestamp()) - max_age_seconds
 
         try:
             # Query GSI2 (last_pull_at index)
