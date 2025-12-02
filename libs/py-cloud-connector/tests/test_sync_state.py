@@ -1,11 +1,11 @@
 """Tests for sync state management."""
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from synheart_cloud_connector.sync_state import SyncState, SyncCursor
+from synheart_cloud_connector.sync_state import SyncState
 from synheart_cloud_connector.vendor_types import VendorType
 
 
@@ -24,7 +24,7 @@ def test_get_cursor_not_exists(sync_state):
 
 def test_update_cursor_new(sync_state):
     """Test creating new cursor."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     cursor = sync_state.update_cursor(
         VendorType.WHOOP,
@@ -43,7 +43,7 @@ def test_update_cursor_new(sync_state):
 
 def test_get_cursor_exists(sync_state):
     """Test getting cursor that exists."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     # Create cursor
     sync_state.update_cursor(
@@ -65,7 +65,7 @@ def test_get_cursor_exists(sync_state):
 
 def test_update_cursor_incremental(sync_state):
     """Test incrementing records_synced."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     # First sync: 10 records
     sync_state.update_cursor(
@@ -76,7 +76,7 @@ def test_update_cursor_incremental(sync_state):
     )
 
     # Second sync: 5 more records
-    later = datetime.now(timezone.utc).isoformat()
+    later = datetime.now(UTC).isoformat()
     cursor = sync_state.update_cursor(
         VendorType.WHOOP,
         "user123",
@@ -90,7 +90,7 @@ def test_update_cursor_incremental(sync_state):
 
 def test_reset_cursor(sync_state):
     """Test resetting cursor."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     # Create cursor
     sync_state.update_cursor(
@@ -110,7 +110,7 @@ def test_reset_cursor(sync_state):
 
 def test_get_last_sync_timestamp(sync_state):
     """Test convenience method for getting timestamp."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     # No cursor exists
     ts = sync_state.get_last_sync_timestamp(VendorType.WHOOP, "user123")
@@ -134,7 +134,7 @@ def test_has_synced_before(sync_state):
     assert not sync_state.has_synced_before(VendorType.WHOOP, "user123")
 
     # Create cursor
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     sync_state.update_cursor(
         VendorType.WHOOP,
         "user123",
@@ -147,7 +147,7 @@ def test_has_synced_before(sync_state):
 
 def test_list_cursors(sync_state):
     """Test listing cursors."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     # Create cursors for different vendors
     sync_state.update_cursor(VendorType.WHOOP, "user1", now, 10)
@@ -171,7 +171,7 @@ def test_list_cursors(sync_state):
 
 def test_multiple_vendors_same_user(sync_state):
     """Test same user ID across different vendors."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     # Same user, different vendors
     sync_state.update_cursor(VendorType.WHOOP, "user123", now, 10)
@@ -187,7 +187,7 @@ def test_multiple_vendors_same_user(sync_state):
 
 def test_last_resource_id(sync_state):
     """Test storing last resource ID for pagination."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     cursor = sync_state.update_cursor(
         VendorType.WHOOP,
