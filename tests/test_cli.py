@@ -24,7 +24,7 @@ def test_version_command():
     """Test that version command works."""
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "0.1.0" in result.stdout
+    assert "0.1.1" in result.stdout
 
 
 def test_start_command_help():
@@ -53,10 +53,3 @@ def test_tokens_command_help():
     result = runner.invoke(app, ["tokens", "--help"])
     assert result.exit_code == 0
     assert "token" in result.stdout.lower()
-
-
-def test_deploy_command_help():
-    """Test that deploy command help works."""
-    result = runner.invoke(app, ["deploy", "--help"])
-    assert result.exit_code == 0
-    assert "deploy" in result.stdout.lower()

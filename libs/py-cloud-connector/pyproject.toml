@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synheart-cloud-connector"
-version = "0.1.0"
+version = "0.1.1"
 description = "Shared base library for Synheart cloud wearable integrations"
 authors = [
     {name = "Israel Goytom", email = "israel@synheart.ai"}

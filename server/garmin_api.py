@@ -23,7 +23,7 @@ from .connector import GarminConnector
 app = FastAPI(
     title="Garmin Cloud Connector",
     description="Synheart Garmin Health API cloud integration service",
-    version="0.1.0",
+    version="0.1.1",
 )
 
 # Load configuration from environment
@@ -110,7 +110,7 @@ async def health_check() -> dict[str, Any]:
     
     return {
         "status": "healthy",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "service": "garmin-cloud-connector",
         "checks": checks,
     }
