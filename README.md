@@ -52,7 +52,7 @@ _* Garmin support in development_
 pip install synheart-wear-cli
 
 # Verify installation
-wear --version
+wear version
 wear --help
 ```
 

@@ -42,20 +42,33 @@ try:
 except ImportError:
     __version__ = "0.1.0"
 
+console = Console()
+
+app = typer.Typer(
+    name="wear",
+    help="Synheart Wear CLI - Cloud wearable integration tool",
+    no_args_is_help=True,
+)
+
 def version_callback(value: bool):
     """Show version and exit."""
     if value:
         console.print(f"[bold cyan]Synheart Wear CLI[/bold cyan] version [green]{__version__}[/green]")
         raise typer.Exit()
 
-app = typer.Typer(
-    name="wear",
-    help="Synheart Wear CLI - Cloud wearable integration tool",
-    no_args_is_help=True,
-    callback=lambda version: version,
-)
-
-console = Console()
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-v",
+        help="Show version and exit",
+        callback=version_callback,
+        is_eager=True,
+    )
+):
+    """Synheart Wear CLI - Cloud wearable integration tool."""
+    pass
 
 
 # ============================================================================
