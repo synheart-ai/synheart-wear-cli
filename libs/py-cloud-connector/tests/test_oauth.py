@@ -1,12 +1,12 @@
 """Tests for OAuth handler functionality."""
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 import pytest
 from httpx import Response
 
-from synheart_cloud_connector.exceptions import OAuthError, VendorAPIError
+from synheart_cloud_connector.exceptions import OAuthError
 from synheart_cloud_connector.oauth import OAuthHandler
 from synheart_cloud_connector.vendor_types import OAuthTokens
 
@@ -235,9 +235,9 @@ class TestOAuthHandler:
             "expires_in": 3600,
         }
 
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         tokens = oauth_handler._parse_token_response(response)
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
 
         expected_expiry = before + timedelta(seconds=3600)
         assert tokens.expires_at >= expected_expiry
