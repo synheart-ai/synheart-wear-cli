@@ -16,10 +16,10 @@ except ImportError:
     class ClientError(Exception):
         pass
 
-logger = logging.getLogger(__name__)
-
 from .exceptions import EnqueueError
 from .vendor_types import SQSMessage, VendorType, WebhookEvent
+
+logger = logging.getLogger(__name__)
 
 
 class JobQueue:

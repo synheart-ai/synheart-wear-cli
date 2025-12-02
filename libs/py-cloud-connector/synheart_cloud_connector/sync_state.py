@@ -20,11 +20,9 @@ Usage:
 
 import os
 from datetime import datetime, timezone
-from typing import Optional
 
 # Lazy import boto3 - only import when actually needed
 try:
-    import boto3
     from botocore.exceptions import ClientError
     HAS_BOTO3 = True
 except ImportError:
@@ -35,8 +33,8 @@ except ImportError:
 
 from pydantic import BaseModel
 
-from .vendor_types import VendorType
 from .exceptions import CloudConnectorError
+from .vendor_types import VendorType
 
 
 class SyncCursor(BaseModel):
@@ -56,7 +54,7 @@ class SyncCursor(BaseModel):
     user_id: str
     last_sync_ts: str  # ISO8601 UTC timestamp
     records_synced: int = 0
-    last_resource_id: Optional[str] = None
+    last_resource_id: str | None = None
     created_at: str
     updated_at: str
 
@@ -74,8 +72,8 @@ class SyncState:
 
     def __init__(
         self,
-        table_name: Optional[str] = None,
-        region: Optional[str] = None,
+        table_name: str | None = None,
+        region: str | None = None,
     ):
         """
         Initialize sync state manager.
@@ -114,7 +112,7 @@ class SyncState:
         self,
         vendor: VendorType,
         user_id: str,
-    ) -> Optional[SyncCursor]:
+    ) -> SyncCursor | None:
         """
         Get sync cursor for user/vendor.
 
@@ -169,7 +167,7 @@ class SyncState:
         user_id: str,
         last_sync_ts: str,
         records_synced: int = 0,
-        last_resource_id: Optional[str] = None,
+        last_resource_id: str | None = None,
     ) -> SyncCursor:
         """
         Update sync cursor after successful pull.
@@ -261,7 +259,7 @@ class SyncState:
 
     def list_cursors(
         self,
-        vendor: Optional[VendorType] = None,
+        vendor: VendorType | None = None,
         limit: int = 100,
     ) -> list[SyncCursor]:
         """
@@ -331,7 +329,7 @@ class SyncState:
         self,
         vendor: VendorType,
         user_id: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Convenience method to get just the last sync timestamp.
 
