@@ -1,0 +1,135 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synheart-wear-cli"
+version = "0.1.0"
+description = "All-in-one local development tool for cloud wearable integrations - CLI + FastAPI server + ngrok integration for WHOOP, Garmin, and Fitbit"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Israel Goytom", email = "opensource@synheart.ai"},
+]
+maintainers = [
+    {name = "Synheart AI Team", email = "opensource@synheart.ai"},
+]
+keywords = [
+    "wearables",
+    "health",
+    "fitness",
+    "whoop",
+    "garmin",
+    "fitbit",
+    "oauth",
+    "api",
+    "cli",
+    "biometrics",
+    "heart-rate",
+    "hrv",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Health :: Wearable Devices",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+    "httpx>=0.27.0",
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "pyngrok>=7.0.0",
+    "pydantic>=2.0.0",
+    "boto3>=1.34.0",
+    "cryptography>=42.0.0",
+    "python-dateutil>=2.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "types-python-dateutil>=2.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/synheart-ai/synheart-wear-cli"
+Documentation = "https://github.com/synheart-ai/synheart-wear-cli#readme"
+Repository = "https://github.com/synheart-ai/synheart-wear-cli"
+Issues = "https://github.com/synheart-ai/synheart-wear-cli/issues"
+Changelog = "https://github.com/synheart-ai/synheart-wear-cli/releases"
+Organization = "https://pypi.org/org/Synheart/"
+
+[project.scripts]
+wear = "wear:app"
+
+[tool.setuptools]
+py-modules = ["wear"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["server*", "libs/*"]
+exclude = ["tests*", "__dev__*", "*.egg-info"]
+
+[tool.setuptools.package-data]
+server = ["*.py"]
+"libs.py-cloud-connector" = ["*.py"]
+"libs.py-normalize" = ["*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=server --cov=libs --cov-report=term-missing"
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | __pycache__
+  | __dev__
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "__dev__",
+    "build",
+    "dist",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true

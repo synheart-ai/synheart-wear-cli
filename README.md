@@ -1,42 +1,409 @@
 # Synheart Wear CLI (`wear`)
 
-Command-line tool for local development, testing, and operations of the Synheart Wear cloud connector.
+[![PyPI version](https://badge.fury.io/py/synheart-wear-cli.svg)](https://pypi.org/project/synheart-wear-cli/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/synheart-wear-cli.svg)](https://pypi.org/project/synheart-wear-cli/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://pepy.tech/badge/synheart-wear-cli)](https://pepy.tech/project/synheart-wear-cli)
 
-**Author:** Israel Goytom
+**All-in-one local development tool for cloud wearable integrations** — Complete CLI + FastAPI server + ngrok integration for WHOOP, Garmin, and Fitbit testing.
+
+
+
+## 🚀 What is This?
+
+The Synheart Wear CLI combines a **command-line interface** with an **embedded FastAPI server** for local wearable development:
+
+### CLI Features:
+- 🔧 Manage OAuth tokens (list, refresh, revoke)
+- 📥 Pull data from cloud APIs
+- 🔍 Inspect webhook events
+- 🚀 Start/stop local dev server
+
+### Server Features:
+- 🔐 OAuth flows for cloud wearables (WHOOP, Fitbit, Garmin*)
+- 🪝 Webhook endpoints for real-time data
+- 🌐 Automatic ngrok tunnel exposure
+- 💾 Local token storage (dev mode) or DynamoDB + KMS (production)
+- 📊 Data normalization to Synheart format
+
+**Perfect for:**
+- Testing SDK integrations locally
+- Developing apps with WHOOP/Garmin data
+- Prototyping cloud wearable features
+- Full OAuth flow testing
+
+_* Garmin support in development_
 
 ## 📋 Prerequisites
 
-- Python 3.11 or higher
-- pip (Python package manager)
-- Access to the internal libraries (included in this repository):
-  - `libs/py-cloud-connector`: OAuth token management for wearable vendors
-  - `libs/py-normalize`: Data normalization utilities for vendor-specific formats
+- **Python 3.11+**
+- **ngrok account** (free): https://ngrok.com/
+- **Wearable API credentials** (WHOOP, Garmin, etc.)
+- **AWS Account** (optional for production token storage)
 
-## 🚀 Installation
+## 🚀 Quick Start
 
-### Quick Install
+### 1. Install
+
+**Option A: Install from PyPI (Recommended)**
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd synheart-wear-cli
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install CLI tool
-pip install -e .
+# Install the CLI globally
+pip install synheart-wear-cli
 
 # Verify installation
+wear --version
 wear --help
 ```
 
-### Alternative: Run Directly
+**Option B: Install from Source**
 
 ```bash
-# From the repository root
+# Clone the repository
+git clone https://github.com/synheart-ai/synheart-wear-cli.git
+cd synheart-wear-cli
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Verify installation
 python3 wear.py --help
+# Or if installed globally:
+wear --help
 ```
+
+**Note:** All required libraries are automatically installed. No separate cloning needed.
+
+### 2. Configure ngrok
+
+```bash
+# Get your auth token from https://dashboard.ngrok.com/get-started/your-authtoken
+ngrok config add-authtoken YOUR_TOKEN
+```
+
+### 3. Create Environment File
+
+Create `.env.local` in the CLI directory:
+
+```bash
+# WHOOP Credentials
+WHOOP_CLIENT_ID=your_whoop_client_id
+WHOOP_CLIENT_SECRET=your_whoop_client_secret
+
+# AWS (optional - for production token storage)
+AWS_REGION=us-east-1
+DYNAMODB_TABLE=synheart-wear-tokens
+KMS_KEY_ID=alias/synheart-wear
+
+# Development Mode (automatically enabled by CLI)
+DEV_MODE=true
+WEBHOOK_RECORD=true
+```
+
+### 4. Start Development Server
+
+```bash
+# Start WHOOP connector with ngrok
+python3 wear.py start dev --vendor whoop --port 8000
+
+# Or with auto-open browser for OAuth:
+python3 wear.py start dev --vendor whoop --open-browser
+
+# The CLI will automatically:
+# ✅ Start local FastAPI server
+# ✅ Start ngrok tunnel
+# ✅ Display ngrok URL for SDK configuration
+# ✅ Enable webhook recording
+# ✅ Setup hot-reload for code changes
+```
+
+**Output:**
+```
+🚀 Starting Synheart Wear
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 Configuration:
+   Mode:           dev
+   Vendor:         whoop
+   Port:           8000
+   Auto-reload:    ✅ enabled
+   Webhook record: ✅ enabled
+
+📝 Auto-loaded environment from: .env.local
+
+🌐 Endpoints:
+   API Docs:      http://localhost:8000/docs
+   Health Check:  http://localhost:8000/health
+   OAuth Auth:    http://localhost:8000/v1/oauth/authorize
+   Webhooks:      http://localhost:8000/v1/webhooks/whoop
+
+🌐 Starting ngrok tunnel...
+✅ ngrok tunnel started: https://abc123-xyz.ngrok-free.app
+
+📱 SDK Configuration:
+   Use this URL in your Flutter app:
+   baseUrl: 'https://abc123-xyz.ngrok-free.app'
+```
+
+## 📖 Commands
+
+### `wear start dev` - Start Local Development Server
+
+Start local server with automatic ngrok tunneling.
+
+```bash
+# Start WHOOP connector
+python3 wear.py start dev --vendor whoop --port 8000
+
+# Start with auto-open browser for OAuth
+python3 wear.py start dev --vendor whoop --open-browser
+
+# Start unified service (all vendors - Garmin coming soon)
+python3 wear.py start dev --port 8000
+
+# Use specific environment file
+python3 wear.py start dev --vendor whoop --env .env.production
+
+# Disable auto-reload
+python3 wear.py start dev --vendor whoop --no-reload
+
+# Verbose logging
+python3 wear.py start dev --vendor whoop --verbose
+```
+
+**Options:**
+- `--vendor, -v` - Vendor to run (`whoop`, `garmin`, or omit for all)
+- `--port, -p` - Port to run on (default: 8000)
+- `--reload/--no-reload` - Auto-reload on code changes (default: enabled)
+- `--env` - Environment file to load (`.env.local`, `.env.production`)
+- `--open-browser` - Automatically open OAuth authorization URL
+- `--webhook-record/--no-webhook-record` - Enable webhook recording (default: enabled)
+- `--verbose` - Enable verbose logging
+
+**What it does:**
+- ✅ Starts FastAPI server on specified port
+- ✅ Automatically starts ngrok tunnel
+- ✅ Displays ngrok URL for SDK configuration
+- ✅ Enables auto-reload for code changes
+- ✅ Records webhooks to `__dev__/webhooks_recent.jsonl`
+
+### `wear pull once` - Fetch Data from Cloud API
+
+Pull data from vendor cloud API (requires OAuth connection first).
+
+```bash
+# Pull WHOOP recovery data (last 7 days)
+python3 wear.py pull once --vendor whoop --since 7d
+
+# Pull specific data types
+python3 wear.py pull once --vendor whoop --since 30d --data-types recovery,sleep,workouts
+
+# Pull from specific user
+python3 wear.py pull once --vendor whoop --user-id abc123 --since 14d
+```
+
+**Options:**
+- `--vendor` - Vendor to pull from (required)
+- `--since` - Time range (e.g., `7d`, `30d`, `2h`)
+- `--data-types` - Comma-separated data types (recovery, sleep, workouts, cycles)
+- `--user-id` - Specific user ID (optional)
+
+### `wear tokens` - Manage OAuth Tokens
+
+List, refresh, or revoke OAuth tokens.
+
+```bash
+# List all tokens
+python3 wear.py tokens list
+
+# List tokens for specific vendor
+python3 wear.py tokens list --vendor whoop
+
+# Refresh expired token
+python3 wear.py tokens refresh --vendor whoop --user-id abc123
+
+# Revoke token (disconnect user)
+python3 wear.py tokens revoke --vendor whoop --user-id abc123
+```
+
+### `wear webhook` - Webhook Management
+
+Inspect webhook events recorded during development.
+
+```bash
+# Inspect recent webhooks (last 50)
+python3 wear.py webhook inspect --limit 50
+
+# Filter by vendor
+python3 wear.py webhook inspect --vendor whoop --limit 100
+
+# Show webhook details
+python3 wear.py webhook inspect --verbose
+```
+
+## 🏗️ Architecture
+
+```
+synheart-wear-cli/
+├── wear.py                  # Main CLI entry point
+├── server/                  # Local development server
+│   ├── whoop_api.py        # WHOOP OAuth + data endpoints
+│   ├── garmin_api.py       # Garmin OAuth + data endpoints
+│   ├── unified_api.py      # Unified service (all vendors)
+│   └── whoop_connector.py  # WHOOP connector logic
+├── libs/
+│   ├── py-cloud-connector/ # OAuth token management
+│   └── py-normalize/       # Data normalization
+└── __dev__/                # Development data (auto-generated)
+    ├── webhooks_recent.jsonl
+    └── tokens.json
+```
+
+## 🔧 Development Workflow
+
+### 1. Start Local Server
+
+```bash
+python3 wear.py start dev --vendor whoop --open-browser
+```
+
+### 2. Complete OAuth Flow
+
+The browser will open automatically. Log in and authorize.
+
+### 3. Configure SDK
+
+Use the ngrok URL displayed in the terminal in your app:
+
+**Flutter:**
+```dart
+final whoopProvider = WhoopProvider(
+  baseUrl: 'https://abc123-xyz.ngrok-free.app',
+  redirectUri: 'synheart://oauth/callback',
+);
+```
+
+**Swift:**
+```swift
+let whoopProvider = WhoopProvider(
+    baseUrl: URL(string: "https://abc123-xyz.ngrok-free.app")!,
+    redirectUri: "synheart://oauth/callback"
+)
+```
+
+**Kotlin:**
+```kotlin
+val whoopProvider = WhoopProvider(
+    baseUrl = "https://abc123-xyz.ngrok-free.app",
+    redirectUri = "synheart://oauth/callback"
+)
+```
+
+### 4. Fetch Data
+
+Once connected, fetch data from your app or use the CLI:
+
+```bash
+python3 wear.py pull once --vendor whoop --since 7d
+```
+
+### 5. Test Webhooks
+
+Webhooks are automatically recorded to `__dev__/webhooks_recent.jsonl`:
+
+```bash
+python3 wear.py webhook inspect --limit 10
+```
+
+## 📡 API Endpoints
+
+The local server exposes these endpoints:
+
+### WHOOP
+
+- `GET /v1/oauth/authorize` - Get OAuth authorization URL
+- `GET /v1/oauth/callback` - OAuth callback (GET)
+- `POST /v1/oauth/callback` - OAuth callback (POST, mobile)
+- `POST /v1/webhooks/whoop` - Webhook handler
+- `DELETE /v1/oauth/disconnect` - Disconnect user
+- `GET /v1/data/{user_id}/recovery` - Fetch recovery data
+- `GET /v1/data/{user_id}/sleep` - Fetch sleep data
+- `GET /v1/data/{user_id}/workouts` - Fetch workout data
+- `GET /v1/data/{user_id}/cycles` - Fetch cycle data
+
+### Unified Service
+
+- `GET /v1/whoop-cloud/oauth/authorize` - WHOOP OAuth
+- `GET /v1/garmin-cloud/oauth/authorize` - Garmin OAuth
+- `POST /v1/whoop-cloud/webhooks/whoop` - WHOOP webhooks
+- `POST /v1/garmin-cloud/webhooks/garmin` - Garmin webhooks
+
+### Health Check
+
+- `GET /health` - Service health status
+
+**API Docs:** http://localhost:8000/docs
+
+## 🔒 Security
+
+- **Token Storage**: DynamoDB with KMS encryption (production)
+- **Dev Mode**: Tokens stored locally in `__dev__/tokens.json` (development)
+- **Webhook Verification**: HMAC signature validation
+- **Environment Variables**: Never commit `.env.local` files
+
+## 🧪 Testing
+
+```bash
+# Run tests
+pytest
+
+# Run specific test
+pytest tests/test_oauth.py -v
+
+# Run with coverage
+pytest --cov=server --cov-report=html
+```
+
+## 🐛 Troubleshooting
+
+### ngrok Issues
+
+**Problem:** "ngrok endpoint already online"
+
+**Solution:**
+```bash
+# Kill all ngrok processes
+pkill -f ngrok
+
+# Or restart with different port
+python3 wear.py start dev --port 8001
+```
+
+### Port Already in Use
+
+**Problem:** "Port 8000 is already in use"
+
+**Solution:**
+```bash
+# Find process using port
+lsof -i :8000
+
+# Kill process
+kill $(lsof -ti :8000)
+
+# Or use different port
+python3 wear.py start dev --port 8001
+```
+
+### OAuth Flow Fails
+
+**Problem:** "Authentication failed"
+
+**Solution:**
+1. Check environment variables in `.env.local`
+2. Verify redirect URI matches vendor configuration
+3. Check ngrok URL is correct
+4. Look at server logs for detailed errors
 
 ## 📚 Internal Libraries
 
@@ -44,543 +411,39 @@ python3 wear.py --help
 
 OAuth token management for wearable vendors with DynamoDB + KMS encryption.
 
-- **VendorType**: Enum for supported vendors (whoop, garmin, fitbit)
-- **TokenStore**: DynamoDB-based token storage with encryption
-- **TokenSet**: Standardized OAuth token data structure
+**Features:**
+- `VendorType`: Enum for supported vendors (whoop, garmin, fitbit)
+- `TokenStore`: DynamoDB-based token storage with encryption
+- `TokenSet`: Standardized OAuth token data structure
 
-See [libs/py-cloud-connector/README.md](libs/py-cloud-connector/README.md) for details.
+See [libs/py-cloud-connector/README.md](libs/py-cloud-connector/README.md)
 
 ### py-normalize
 
-Data normalization utilities for converting vendor-specific formats to standardized Synheart formats.
+Data normalization utilities for converting vendor-specific formats to Synheart format.
 
-- **DataNormalizer**: Converts vendor data to common format
-- **DataType**: Enum for data types (recovery, sleep, workout, etc.)
-- **NormalizedData**: Common data structure for all vendors
+**Features:**
+- `DataNormalizer`: Converts vendor data to common format
+- `DataType`: Enum for data types (recovery, sleep, workout, etc.)
+- `NormalizedData`: Common data structure for all vendors
 
-See [libs/py-normalize/README.md](libs/py-normalize/README.md) for details.
+See [libs/py-normalize/README.md](libs/py-normalize/README.md)
 
-## 📖 Commands
+## 🔗 Links
 
-### `wear start` - Start Development Server
+- **Main Repository**: [synheart-wear](https://github.com/synheart-ai/synheart-wear)
+- **Flutter SDK**: [synheart-wear-dart](https://github.com/synheart-ai/synheart-wear-dart)
+- **Android SDK**: [synheart-wear-kotlin](https://github.com/synheart-ai/synheart-wear-kotlin)
+- **iOS SDK**: [synheart-wear-swift](https://github.com/synheart-ai/synheart-wear-swift)
+- **ngrok**: https://ngrok.com/
+- **Issues**: [GitHub Issues](https://github.com/synheart-ai/synheart-wear-cli/issues)
 
-Start local development server for testing.
+## 📄 License
 
-```bash
-# Start WHOOP connector
-wear start dev --vendor whoop --port 8000
-
-# Start with auto-open browser for OAuth
-wear start dev --vendor whoop --port 8000 --open-browser
-
-# Start Garmin connector
-wear start dev --vendor garmin --port 8001
-
-# Start unified service (all vendors)
-wear start dev --port 8000
-
-# Use specific environment file
-wear start dev --vendor whoop --env .env.production
-
-# Disable auto-reload
-wear start dev --vendor whoop --no-reload
-```
-
-**Options:**
-- `--vendor, -v` - Vendor to run (whoop, garmin, all)
-- `--port, -p` - Port to run on (default: 8000)
-- `--reload/--no-reload` - Auto-reload on code changes (default: enabled)
-- `--env` - Environment file to load (.env.production, .env.test)
-- `--open-browser` - Automatically open OAuth authorization URL in browser
-- `--webhook-record/--no-webhook-record` - Enable webhook recording (dev mode only, default: enabled)
-- `--verbose` - Enable verbose logging
-
-**What it does:**
-- Sets up PYTHONPATH automatically
-- Starts uvicorn server
-- Enables auto-reload for development
-- **Automatically starts ngrok** (required for dev mode)
-- Shows ngrok URL for SDK configuration
-- Shows API docs URL
+MIT License - see [LICENSE](LICENSE) file
 
 ---
 
-### `wear webhook` - Webhook Testing
+**Made with ❤️ by the Synheart AI Team**
 
-#### `wear webhook dev` - Development Server with Recording
-
-Start webhook receiver that saves incoming webhooks for inspection.
-
-```bash
-# Start webhook dev server
-wear webhook dev --port 8000
-
-# Specific vendor
-wear webhook dev --vendor whoop --port 8000
-
-# Don't save webhooks
-wear webhook dev --no-save
-```
-
-**Options:**
-- `--port, -p` - Port to run on (default: 8000)
-- `--vendor, -v` - Vendor to receive from (default: all)
-- `--save/--no-save` - Save webhooks to file (default: enabled)
-
-**What it does:**
-- Starts server with webhook recording enabled
-- Saves webhooks to `__dev__/webhooks_recent.jsonl`
-- Useful for debugging webhook payloads
-
-#### `wear webhook inspect` - View Recent Webhooks
-
-Inspect webhooks recorded in dev mode.
-
-```bash
-# Show last 50 webhooks
-wear webhook inspect
-
-# Show last 100 webhooks
-wear webhook inspect --limit 100
-
-# Filter by vendor
-wear webhook inspect --vendor whoop --limit 50
-
-# Filter by event type
-wear webhook inspect --vendor whoop --type recovery.updated
-```
-
-**Options:**
-- `--limit, -n` - Number of webhooks to show (default: 50)
-- `--vendor, -v` - Filter by vendor
-- `--type, -t` - Filter by event type
-
-**What it does:**
-- Reads from `__dev__/webhooks_recent.jsonl`
-- Displays webhooks in a formatted table
-- Shows timestamp, vendor, event type, user ID, resource ID
-
----
-
-### `wear pull` - Manual Data Sync
-
-Trigger manual data pull (backfill) from vendor APIs.
-
-```bash
-# Pull WHOOP data from last 2 days
-wear pull once --vendor whoop --since 2d
-
-# Pull for specific user
-wear pull once --vendor whoop --user-id abc123 --since 1w
-
-# Pull with limit
-wear pull once --vendor garmin --since 2024-01-01 --limit 500
-```
-
-**Options:**
-- `--vendor, -v` - Vendor to pull from (required)
-- `--user-id, -u` - Specific user ID (optional, defaults to all users)
-- `--since, -s` - Time range (e.g., 2d, 1w, 2024-01-01)
-- `--limit, -n` - Max records to fetch (default: 100)
-
-**Time Range Formats:**
-- `2d` - Last 2 days
-- `1w` - Last 1 week
-- `2024-01-01` - Specific date
-- `2024-01-01T00:00:00Z` - Specific datetime
-
-**What it does:**
-- Calls `/v1/{vendor}-cloud/pull` endpoint
-- Fetches data from vendor API
-- Normalizes to SynheartSample format
-- Stores in S3/Redshift
-- Shows progress and statistics
-
----
-
-### `wear tokens` - Token Management
-
-Manage OAuth tokens.
-
-#### `wear tokens list` - List Tokens
-
-```bash
-# List all tokens
-wear tokens list
-
-# Filter by vendor
-wear tokens list --vendor whoop
-
-# Filter by status
-wear tokens list --status active
-
-# Limit results
-wear tokens list --limit 100
-```
-
-**Options:**
-- `--vendor, -v` - Filter by vendor
-- `--status, -s` - Filter by status (active, expired, revoked)
-- `--limit, -n` - Max tokens to show (default: 50)
-
-**What it displays:**
-- Vendor
-- User ID
-- Status (active, expired, revoked, reauth_required)
-- Expires at
-- Last used
-
-#### `wear tokens refresh` - Refresh Token
-
-```bash
-# Refresh token for a user
-wear tokens refresh --vendor whoop --user-id abc123
-```
-
-**Options:**
-- `--vendor, -v` - Vendor (required)
-- `--user-id, -u` - User ID (required)
-
-**What it does:**
-- Gets current tokens from DynamoDB
-- Calls vendor's token refresh endpoint
-- Saves new tokens back to DynamoDB
-- Updates expiry time
-
-#### `wear tokens revoke` - Revoke Token
-
-```bash
-# Revoke token (with confirmation)
-wear tokens revoke --vendor whoop --user-id abc123
-
-# Revoke without confirmation
-wear tokens revoke --vendor whoop --user-id abc123 --yes
-```
-
-**Options:**
-- `--vendor, -v` - Vendor (required)
-- `--user-id, -u` - User ID (required)
-- `--yes, -y` - Skip confirmation
-
-**What it does:**
-- Calls vendor's revoke endpoint (if supported)
-- Marks token as revoked in DynamoDB
-- User will need to re-authorize
-
----
-
-### `wear version` - Version Info
-
-Show version information.
-
-```bash
-wear version
-```
-
-## 🎯 Common Workflows
-
-### Local Development
-
-```bash
-# Terminal 1: Start server
-wear start dev --vendor whoop --port 8000
-
-# Terminal 2: Watch logs and test
-curl http://localhost:8000/health
-```
-
-### Webhook Testing
-
-```bash
-# Terminal 1: Start webhook dev server
-wear webhook dev --vendor whoop --port 8000
-
-# Terminal 2: Send test webhooks
-# (use ngrok or test scripts)
-
-# Terminal 3: Inspect recorded webhooks
-wear webhook inspect --limit 10
-```
-
-### Manual Data Sync
-
-```bash
-# Pull recent data for a user
-wear pull once --vendor whoop --user-id abc123 --since 7d
-
-# Check what was fetched
-wear tokens list --vendor whoop
-```
-
-### Token Management
-
-```bash
-# List all active tokens
-wear tokens list --status active
-
-# Refresh expiring token
-wear tokens refresh --vendor whoop --user-id abc123
-
-# Revoke user's access
-wear tokens revoke --vendor whoop --user-id abc123 --yes
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Set these in `.env` or export before running commands:
-
-```bash
-# API Configuration
-API_URL=http://localhost:8000          # API endpoint for pull/tokens commands
-DYNAMODB_TABLE=cloud_connector_tokens  # DynamoDB table name
-KMS_KEY_ID=your-kms-key-id             # KMS key for encryption
-
-# Vendor Credentials (for start command)
-WHOOP_CLIENT_ID=your-client-id
-WHOOP_CLIENT_SECRET=your-client-secret
-WHOOP_WEBHOOK_SECRET=your-webhook-secret
-```
-
-### Using .env Files
-
-```bash
-# Start with specific env file
-wear start dev --vendor whoop --env .env.production
-
-# Or export before running
-export $(cat .env.production | xargs)
-wear start dev --vendor whoop
-```
-
-## 🐛 Troubleshooting
-
-### Command not found: wear
-
-```bash
-# Make sure it's installed
-pip install -e .
-
-# Or run directly
-python3 wear.py --help
-```
-
-### ModuleNotFoundError
-
-```bash
-# Install CLI dependencies
-pip install -r requirements.txt
-```
-
-### Server won't start
-
-```bash
-# Check if port is in use
-lsof -i :8000
-
-# Kill existing process
-kill -9 <PID>
-
-# Try different port
-wear start dev --port 8001
-```
-
-### Webhook inspect shows no webhooks
-
-```bash
-# Make sure you ran webhook dev mode first
-wear webhook dev --port 8000
-
-# Check if file exists
-ls -la __dev__/webhooks_recent.jsonl
-```
-
-## 📚 Examples
-
-### Complete Development Workflow
-
-```bash
-# 1. Start WHOOP connector in dev mode
-wear start dev --vendor whoop --env .env.production
-
-# 2. In another terminal, test OAuth
-curl "http://localhost:8000/v1/oauth/authorize?redirect_uri=http://localhost:8000/v1/oauth/callback&state=test_user"
-
-# 3. After OAuth, pull recent data
-wear pull once --vendor whoop --user-id test_user --since 7d
-
-# 4. Check tokens
-wear tokens list --vendor whoop
-```
-
-### Webhook Development
-
-```bash
-# 1. Start webhook dev server
-wear webhook dev --vendor whoop
-
-# 2. Use ngrok to expose locally
-ngrok http 8000
-
-# 3. Configure ngrok URL in WHOOP Developer Portal
-
-# 4. Trigger WHOOP data (workout, sleep, etc.)
-
-# 5. Inspect received webhooks
-wear webhook inspect --vendor whoop --limit 20
-```
-
----
-
-### `wear deploy` - Deployment Commands (Coming Soon)
-
-Deployment features are coming in a future release. For now, focus on local development!
-
-```bash
-# All deploy commands show "coming soon" message
-wear deploy service whoop-cloud production
-```
-
----
-
-### ngrok Integration (Automatic in Dev Mode)
-
-When running `wear start dev`, ngrok is **automatically started** to expose your local server.
-
-**Prerequisites:**
-- `pyngrok` is automatically installed with the CLI (via `requirements.txt`)
-- ngrok is **required** for dev mode (CLI will error if pyngrok is not installed)
-- First-time setup: You may need to set your ngrok authtoken (free account required):
-  ```bash
-  ngrok config add-authtoken YOUR_TOKEN
-  ```
-  Get your token from: https://dashboard.ngrok.com/get-started/your-authtoken
-
-**What happens:**
-1. CLI checks if ngrok is installed
-2. CLI checks if ngrok tunnel already exists for your port
-3. If not running, CLI automatically starts ngrok in background
-4. CLI displays the ngrok URL for SDK configuration
-
-**SDK Configuration:**
-After starting, you'll see:
-```
-✅ ngrok tunnel started: https://abc123.ngrok-free.app
-
-📱 SDK Configuration:
-   Use this URL in your Flutter app:
-   baseUrl: 'https://abc123.ngrok-free.app'
-```
-
-Use this URL in your Flutter app's `WhoopProvider` or `GarminProvider`:
-```dart
-final provider = WhoopProvider(
-  baseUrl: 'https://abc123.ngrok-free.app',  // From CLI output
-);
-```
-
-**Manual ngrok:**
-If you prefer to start ngrok manually:
-```bash
-# Terminal 1: Start ngrok
-ngrok http 8000
-
-# Terminal 2: Start server (CLI will detect existing tunnel)
-wear start dev --vendor whoop --port 8000
-```
-
----
-
-## 🎨 Output Features
-
-The CLI uses Rich for beautiful terminal output:
-
-- ✅ Color-coded messages
-- 📊 Formatted tables for list commands
-- ⏳ Progress spinners for long operations
-- 🎯 Clear error messages with suggestions
-
-## 🚀 Next Steps
-
-After installing the CLI:
-
-1. **Test the start command:**
-   ```bash
-   wear start dev --vendor whoop --port 8000
-   ```
-
-2. **Explore webhook inspection:**
-   ```bash
-   wear webhook dev
-   wear webhook inspect
-   ```
-
-3. **Try token management:**
-   ```bash
-   wear tokens list
-   ```
-
-## 🧪 Testing
-
-The CLI includes a test suite to ensure functionality.
-
-### Running Tests
-
-```bash
-# Install development dependencies
-pip install -r requirements-dev.txt
-
-# Run all tests
-pytest
-
-# Run tests with coverage
-pytest --cov=wear --cov-report=html
-
-# Run specific test file
-pytest tests/test_cli.py -v
-```
-
-### Test Structure
-
-```
-tests/
-├── __init__.py
-└── test_cli.py         # Basic CLI command tests
-```
-
-All tests passing:
-- ✅ Help command
-- ✅ Version command
-- ✅ All subcommands (start, webhook, pull, tokens, deploy)
-
-## 📝 Notes
-
-- The CLI is designed for **local development** and **production operations**
-- **ngrok is required** for dev mode (auto-started by CLI)
-- Webhook recording only works in dev mode
-- Token commands use local file storage (`__dev__/tokens.json`) by default in dev mode
-- Pull command requires server to be running
-- Production deployment features coming soon
-
-## 🔒 Security
-
-- Never commit `.env` files or credentials to version control
-- Use environment variables or secure secret management in production
-- Token storage uses encryption when using DynamoDB with KMS
-
-## 🆘 Support
-
-For issues or questions:
-1. Check this README
-2. Run command with `--help` flag
-3. Check server logs
-4. Verify environment variables
-
-## 🎉 You're Ready!
-
-The `wear` CLI is now available. Start with:
-
-```bash
-wear --help
-```
+*Technology with a heartbeat.*

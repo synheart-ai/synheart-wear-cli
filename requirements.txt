@@ -1,19 +1,33 @@
+# CLI Framework
 typer[all]>=0.9.0
 rich>=13.0.0
+
+# HTTP Client
 httpx>=0.27.0
+
+# FastAPI & Web Server (for local dev server)
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Environment & Configuration
 python-dotenv>=1.0.0
+
+# Ngrok for local tunneling
 pyngrok>=7.0.0
 
-# Dependencies from py-cloud-connector (required even if installed as editable)
-pydantic>=2.0.0
+# AWS SDK (for token storage, optional in dev mode)
 boto3>=1.34.0
+
+# Crypto & Security
 cryptography>=42.0.0
+
+# Data validation
+pydantic>=2.0.0
+
+# Date utilities
 python-dateutil>=2.8.0
 
-# Local dependencies (must be installed separately if using monorepo structure)
-# Uncomment if you have these libraries available in ../libs/
-# -e ../libs/py-cloud-connector
-# -e ../libs/py-normalize
-#
-# Note: If these libraries are not available, the CLI will work in limited mode.
-# Token management and some advanced features require these dependencies.
+# Local development dependencies (included in libs/)
+# These are installed via -e flag pointing to libs/ directories
+# -e ./libs/py-cloud-connector
+# -e ./libs/py-normalize

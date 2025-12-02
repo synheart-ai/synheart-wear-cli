@@ -1,21 +1,8 @@
-"""
-Synheart Normalize Library
+"""Synheart Normalize - Data normalization for wearable integrations."""
 
-Provides data normalization utilities for wearable vendor data,
-converting vendor-specific formats into standardized Synheart formats.
-"""
-
-from .normalizer import DataNormalizer, NormalizedData, DataType
-from .vendor_schemas import VendorSchema, WhoopSchema, GarminSchema, FitbitSchema
+from .schema import SynheartSample
+from .to_synheart import normalize_to_synheart
 
 __version__ = "0.1.0"
 
-__all__ = [
-    "DataNormalizer",
-    "NormalizedData",
-    "DataType",
-    "VendorSchema",
-    "WhoopSchema",
-    "GarminSchema",
-    "FitbitSchema",
-]
+__all__ = ["SynheartSample", "normalize_to_synheart"]

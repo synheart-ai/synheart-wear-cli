@@ -1,0 +1,35 @@
+# Include documentation
+include README.md
+include LICENSE
+include CHANGELOG.md
+include requirements.txt
+include requirements-dev.txt
+include PUBLISHING.md
+
+# Include version file
+include __version__.py
+
+# Include server package
+recursive-include server *.py
+
+# Include internal libraries
+recursive-include libs *.py
+recursive-include libs *.toml
+recursive-include libs *.md
+
+# Exclude development and cache files
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store
+recursive-exclude * *.egg-info
+
+# Exclude development directories
+exclude __dev__
+recursive-exclude __dev__ *
+exclude tests
+recursive-exclude tests *
+
+# Exclude backup files
+global-exclude *~
+global-exclude *.bak
+global-exclude libs_backup_*

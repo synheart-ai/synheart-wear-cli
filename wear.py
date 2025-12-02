@@ -36,10 +36,23 @@ if (CLI_ROOT / "libs" / "py-cloud-connector").exists():
 if (CLI_ROOT / "libs" / "py-normalize").exists():
     sys.path.insert(0, str(CLI_ROOT / "libs" / "py-normalize"))
 
+# Import version
+try:
+    from __version__ import __version__
+except ImportError:
+    __version__ = "0.1.0"
+
+def version_callback(value: bool):
+    """Show version and exit."""
+    if value:
+        console.print(f"[bold cyan]Synheart Wear CLI[/bold cyan] version [green]{__version__}[/green]")
+        raise typer.Exit()
+
 app = typer.Typer(
     name="wear",
     help="Synheart Wear CLI - Cloud wearable integration tool",
     no_args_is_help=True,
+    callback=lambda version: version,
 )
 
 console = Console()
@@ -94,7 +107,7 @@ def _show_available_data(vendor: str, port: int, base_url: str):
     """Show available users and their data counts."""
     try:
         # Check for local tokens file
-        tokens_file = REPO_ROOT / "__dev__" / "tokens.json"
+        tokens_file = CLI_ROOT / "__dev__" / "tokens.json"
         if not tokens_file.exists():
             return
         
@@ -148,7 +161,7 @@ def _show_available_data(vendor: str, port: int, base_url: str):
         pass  # Silently fail if can't show data
 
 
-def _open_oauth_browser(vendor: str, port: int, service_path: Optional[Path] = None):
+def _open_oauth_browser(vendor: str, port: int, is_local_test: bool = False):
     """Open OAuth authorization URL in default browser."""
     try:
         import webbrowser
@@ -156,11 +169,11 @@ def _open_oauth_browser(vendor: str, port: int, service_path: Optional[Path] = N
     except ImportError as e:
         console.print(f"[yellow]⚠️  Required module not available: {e}[/yellow]")
         return
-    
+
     # Determine the correct route prefix based on which service is running
-    # Unified service uses: /v1/{vendor}-cloud/oauth/authorize
-    # Individual vendor services (local test) use: /v1/oauth/authorize
-    if service_path and (service_path / "api_local.py").exists():
+    # whoop_api uses: /v1/oauth/authorize (local test routes)
+    # unified_api uses: /v1/{vendor}-cloud/oauth/authorize
+    if is_local_test:
         # Local test API uses simpler routes
         oauth_authorize_path = "/v1/oauth/authorize"
         oauth_callback_path = "/v1/oauth/callback"
@@ -302,26 +315,28 @@ def start(
         console.print(f"   Verbose:        [cyan]✅ enabled[/cyan]")
     console.print()
 
-    # Determine which service to run
-    if vendor == "whoop":
-        service_path = REPO_ROOT / "services" / "whoop-cloud"
-        script = "api_local.py" if mode == "dev" else "api.py"
-    elif vendor == "garmin":
-        service_path = REPO_ROOT / "services" / "garmin-cloud"
-        script = "api_local.py" if mode == "dev" else "api.py"
-    else:
-        # Run unified service
-        service_path = REPO_ROOT / "services" / "synheart-wear-service"
-        script = "api.py"
-
-    if not service_path.exists():
-        console.print(f"[red]❌ Service directory not found: {service_path}[/red]")
+    # Determine which service to run (using new server/ directory)
+    server_dir = CLI_ROOT / "server"
+    if not server_dir.exists():
+        console.print(f"[red]❌ Server directory not found: {server_dir}[/red]")
+        console.print(f"   Expected at: {server_dir}")
         raise typer.Exit(1)
 
-    script_path = service_path / script
+    if vendor == "whoop":
+        script = "whoop_api"  # Module name (without .py)
+    elif vendor == "garmin":
+        script = "garmin_api"
+    else:
+        # Run unified service
+        script = "unified_api"
+
+    script_path = server_dir / f"{script}.py"
     if not script_path.exists():
         console.print(f"[red]❌ Script not found: {script_path}[/red]")
         raise typer.Exit(1)
+
+    # Use server directory as the service path
+    service_path = server_dir
 
     # Set environment
     env = os.environ.copy()
@@ -333,17 +348,17 @@ def start(
         if webhook_record:
             env["WEBHOOK_RECORD"] = "true"
             # Ensure __dev__ directory exists
-            dev_dir = REPO_ROOT / "__dev__"
+            dev_dir = CLI_ROOT / "__dev__"
             dev_dir.mkdir(exist_ok=True)
             env["WEBHOOK_RECORD_PATH"] = str(dev_dir / "webhooks_recent.jsonl")
         if verbose:
             env["LOG_LEVEL"] = "DEBUG"
     
     # Load environment file
-    # Priority: --env flag > .env.local (dev mode) > .env (any mode) > default (.env.production for whoop-cloud)
+    # Priority: --env flag > .env.local (dev mode) > .env (any mode)
     # Ensure env_file is a string, not a Typer OptionInfo object
     if env_file and isinstance(env_file, str):
-        env_path = service_path / env_file
+        env_path = CLI_ROOT / env_file
         if env_path.exists():
             console.print(f"[green]📝 Loading environment from:[/green] [cyan]{env_file}[/cyan]")
             from dotenv import load_dotenv
@@ -352,42 +367,35 @@ def start(
             console.print(f"[yellow]⚠️  Environment file not found: {env_file}[/yellow]")
     else:
         # Auto-detect environment file in dev mode
-        # Priority: service directory > repo root (for shared credentials)
         env_files_to_try = []
         if mode == "dev":
-            # Try service-specific first, then root
             env_files_to_try = [
-                (service_path / ".env.local"),
-                (service_path / ".env.dev"),
-                (service_path / ".env"),
-                (REPO_ROOT / ".env.local"),  # Shared root-level file
-                (REPO_ROOT / ".env"),
+                (CLI_ROOT / ".env.local"),
+                (CLI_ROOT / ".env.dev"),
+                (CLI_ROOT / ".env"),
             ]
         else:
             env_files_to_try = [
-                (service_path / ".env.production"),
-                (service_path / ".env"),
-                (REPO_ROOT / ".env.production"),
-                (REPO_ROOT / ".env"),
+                (CLI_ROOT / ".env.production"),
+                (CLI_ROOT / ".env"),
             ]
-        
+
         from dotenv import load_dotenv
         env_loaded = False
         for env_path in env_files_to_try:
             if env_path.exists():
                 load_dotenv(env_path, override=True)
-                rel_path = env_path.relative_to(REPO_ROOT)
-                console.print(f"[green]📝 Auto-loaded environment from:[/green] [cyan]{rel_path}[/cyan]")
+                console.print(f"[green]📝 Auto-loaded environment from:[/green] [cyan]{env_path.name}[/cyan]")
                 env_loaded = True
                 break
-        
+
         if not env_loaded:
             console.print(f"[dim]💡 No environment file found. Using system environment variables.[/dim]")
-            console.print(f"   Create [cyan].env.local[/cyan] in repo root or service directory")
+            console.print(f"   Create [cyan].env.local[/cyan] in CLI directory")
             console.print(f"   Or use: [cyan]wear start {mode} --env .env.local[/cyan]")
-    
-    # Determine route prefix based on service type
-    is_local_test = script == "api_local.py"
+
+    # Determine route prefix - whoop_api uses local test routes
+    is_local_test = script == "whoop_api"
     
     # Display endpoints
     console.print(f"[bold]🌐 Endpoints:[/bold]")
@@ -575,28 +583,29 @@ def start(
                     if response.status_code == 200:
                         # Server is ready, open browser
                         time_module.sleep(0.5)  # Small additional delay
-                        _open_oauth_browser(vendor, port, service_path)
+                        _open_oauth_browser(vendor, port, is_local_test)
                         return
                 except Exception:
                     pass
                 time_module.sleep(0.5)
-            
+
             # Fallback: if health check fails, try opening anyway after timeout
             console.print("[yellow]⚠️  Server may not be fully ready, opening browser anyway...[/yellow]")
-            _open_oauth_browser(vendor, port, service_path)
+            _open_oauth_browser(vendor, port, is_local_test)
         
         browser_thread = threading.Thread(target=open_browser_after_start, daemon=True)
         browser_thread.start()
 
+    # Run uvicorn with the correct module path
     cmd = [
         "uvicorn",
-        f"{script_path.stem}:app",
+        f"server.{script}:app",  # e.g. server.whoop_api:app
         "--host", "0.0.0.0",
         "--port", str(port),
     ]
 
     if reload and mode == "dev":
-        cmd.extend(["--reload", "--reload-dir", str(service_path)])
+        cmd.extend(["--reload", "--reload-dir", str(server_dir)])
 
     # Store ngrok tunnel info for cleanup
     ngrok_tunnel_url = None
@@ -630,7 +639,8 @@ def start(
     # Use Popen instead of run for better signal control
     process = None
     try:
-        process = subprocess.Popen(cmd, cwd=service_path, env=env)
+        # Run from CLI_ROOT so uvicorn can find server module
+        process = subprocess.Popen(cmd, cwd=CLI_ROOT, env=env)
         
         # Signal handler for Ctrl+C (must be defined after process is created)
         def signal_handler(sig, frame):
@@ -1374,9 +1384,10 @@ def destroy(
 def version():
     """Show version information."""
     console.print("[bold]Synheart Wear CLI[/bold]")
-    console.print("Version: [cyan]0.1.0[/cyan]")
+    console.print(f"Version: [cyan]{__version__}[/cyan]")
     console.print()
-    console.print(f"Repository: [dim]{REPO_ROOT}[/dim]")
+    console.print(f"Repository: [dim]{CLI_ROOT}[/dim]")
+    console.print(f"PyPI: [link]https://pypi.org/project/synheart-wear-cli/[/link]")
 
 
 # ============================================================================

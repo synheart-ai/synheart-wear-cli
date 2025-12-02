@@ -1,110 +1,103 @@
 # Synheart Cloud Connector
 
-OAuth token management library for Synheart wearable vendor integrations (Whoop, Garmin, Fitbit).
+Shared base library for all Synheart cloud-based wearable integrations (WHOOP, Garmin, Fitbit, Polar, etc.).
 
-## Features
+## Overview
 
-- **VendorType**: Enum for supported wearable vendors
-- **TokenStore**: DynamoDB-based token storage with KMS encryption
-- **TokenSet**: Standardized OAuth token data structure
+This library provides a unified abstraction for:
+- **OAuth 2.0 flows** (authorization code exchange, token refresh)
+- **Token storage** (DynamoDB with KMS encryption)
+- **Webhook verification** (HMAC signatures, replay protection)
+- **Job queue management** (SQS enqueueing and processing)
+- **Rate limiting** (token bucket algorithm, vendor API throttling)
 
 ## Installation
 
 ```bash
-pip install -e libs/py-cloud-connector
+pip install -e .
 ```
 
-Or with development dependencies:
+For development:
 
 ```bash
-pip install -e "libs/py-cloud-connector[dev]"
+pip install -e ".[dev]"
 ```
 
 ## Usage
 
-### VendorType
+### Creating a Vendor Connector
 
 ```python
-from synheart_cloud_connector import VendorType
+from synheart_cloud_connector import CloudConnectorBase
 
-# Use vendor types
-vendor = VendorType.WHOOP
-print(vendor.value)  # "whoop"
+class WhoopConnector(CloudConnectorBase):
+    vendor = "whoop"
 
-# Check if vendor is valid
-if VendorType.is_valid("garmin"):
-    print("Valid vendor")
+    def auth_base_url(self) -> str:
+        return "https://api.prod.whoop.com/oauth"
 
-# List all vendors
-vendors = VendorType.list_vendors()  # ['whoop', 'garmin', 'fitbit']
+    def token_url(self) -> str:
+        return "https://api.prod.whoop.com/oauth/token"
+
+    def scopes(self) -> list[str]:
+        return ["read:recovery", "read:sleep", "read:workout"]
+
+    def verify_webhook(self, headers: dict, raw_body: bytes) -> bool:
+        # WHOOP-specific HMAC validation
+        timestamp = headers.get("X-WHOOP-Signature-Timestamp")
+        signature = headers.get("X-WHOOP-Signature")
+        return self.verify_hmac_sha256(timestamp, raw_body, signature)
+
+    def parse_event(self, raw_body: bytes) -> dict:
+        import json
+        return json.loads(raw_body)
 ```
 
-### TokenStore
+## Architecture
 
-```python
-from synheart_cloud_connector import TokenStore, TokenSet, VendorType
-from datetime import datetime, timedelta
+Each vendor connector extends `CloudConnectorBase` and implements:
 
-# Initialize token store
-store = TokenStore(
-    table_name="my-tokens-table",
-    kms_key_id="your-kms-key-id",  # Optional
-    region_name="us-west-2"
-)
+### Required Methods
+- `auth_base_url()` - OAuth authorization URL
+- `token_url()` - Token exchange endpoint
+- `scopes()` - Required OAuth scopes
+- `verify_webhook()` - Webhook signature validation
+- `parse_event()` - Parse vendor webhook payload
 
-# Save tokens
-tokens = TokenSet(
-    access_token="access_token_value",
-    refresh_token="refresh_token_value",
-    expires_at=datetime.now() + timedelta(hours=1),
-    vendor_user_id="vendor_user_123",
-    scopes=["read:recovery", "read:sleep"]
-)
+### Inherited Methods
+- `exchange_code()` - Exchange authorization code for tokens
+- `refresh_if_needed()` - Refresh expired access tokens
+- `enqueue_event()` - Push events to SQS
+- `get_user_tokens()` - Retrieve encrypted tokens from DynamoDB
+- `revoke_tokens()` - Revoke and delete user tokens
 
-store.save_tokens(VendorType.WHOOP, "user_123", tokens)
+## Testing
 
-# Get tokens
-tokens = store.get_tokens(VendorType.WHOOP, "user_123")
-if tokens and not tokens.is_expired():
-    print(f"Access token: {tokens.access_token}")
-
-# Revoke tokens
-store.revoke_tokens(VendorType.WHOOP, "user_123")
-
-# Scan tokens
-active_tokens = store.scan_tokens(
-    vendor=VendorType.WHOOP,
-    status="active",
-    limit=10
-)
+```bash
+pytest
 ```
 
-## DynamoDB Table Schema
+With coverage:
 
-```
-Table Name: <your-table-name>
-Partition Key: token_key (String) - format: "{vendor}:{user_id}"
-
-Attributes:
-- vendor (String): Vendor type (whoop, garmin, fitbit)
-- user_id (String): User ID
-- access_token (Binary): Encrypted access token
-- refresh_token (Binary): Encrypted refresh token
-- expires_at (Number): Unix timestamp
-- vendor_user_id (String): Vendor's user ID (optional)
-- scopes (List): List of scopes (optional)
-- status (String): active, revoked, expired
-- created_at (Number): Unix timestamp
-- updated_at (Number): Unix timestamp
+```bash
+pytest --cov=synheart_cloud_connector --cov-report=term-missing
 ```
 
-## Environment Variables
+## Directory Structure
 
-- `AWS_REGION`: AWS region (default: us-west-2)
-- `DYNAMODB_TABLE`: DynamoDB table name
-- `KMS_KEY_ID`: KMS key ID for encryption (optional)
+```
+synheart_cloud_connector/
+├── __init__.py
+├── base.py              # CloudConnectorBase abstract class
+├── oauth.py             # OAuth utilities
+├── tokens.py            # TokenStore (DynamoDB + KMS)
+├── webhooks.py          # Webhook verification utilities
+├── jobs.py              # JobQueue (SQS)
+├── rate_limit.py        # RateLimiter (token bucket)
+├── vendor_types.py      # Type definitions and enums
+└── exceptions.py        # Custom exceptions
+```
 
-## Requirements
+## Contributing
 
-- Python >= 3.9
-- boto3 >= 1.26.0
+See the main [RFC-0002](../../docs/RFC-0002.md) for architecture decisions and design principles.
