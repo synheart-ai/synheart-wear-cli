@@ -37,7 +37,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Health :: Wearable Devices",
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
     "Operating System :: OS Independent",
 ]
