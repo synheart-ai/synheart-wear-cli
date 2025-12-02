@@ -1,13 +1,13 @@
 """Job queue management using AWS SQS."""
 
 import json
+import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Lazy import boto3 - only import when actually needed (not during module import)
 # This allows local dev mode to work without boto3 installed
 try:
-    import boto3
     from botocore.exceptions import ClientError
     HAS_BOTO3 = True
 except ImportError:
@@ -15,6 +15,8 @@ except ImportError:
     # Create dummy classes for type hints when boto3 is not available
     class ClientError(Exception):
         pass
+
+logger = logging.getLogger(__name__)
 
 from .exceptions import EnqueueError
 from .vendor_types import SQSMessage, VendorType, WebhookEvent
@@ -111,7 +113,7 @@ class JobQueue:
             user_id=user_id,
             resource_id=None,
             trace_id=str(uuid.uuid4()),
-            received_at=datetime.now(timezone.utc),
+            received_at=datetime.now(UTC),
             retries=0,
             payload={
                 "start_date": start_date.isoformat(),
@@ -238,7 +240,7 @@ class JobQueue:
             )
         except ClientError as e:
             # Log but don't fail - message will eventually be reprocessed
-            print(f"Warning: Failed to delete message {message.trace_id}: {e}")
+            logger.warning("Failed to delete message %s: %s", message.trace_id, e)
 
         # Send new message with delay
         return self._send_message(message, delay_seconds)
@@ -281,7 +283,7 @@ class JobQueue:
                         }
                     )
                 except (json.JSONDecodeError, ValueError) as e:
-                    print(f"Warning: Failed to parse message: {e}")
+                    logger.warning("Failed to parse message: %s", e)
                     continue
 
             return parsed_messages

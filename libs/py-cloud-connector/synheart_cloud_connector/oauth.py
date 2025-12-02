@@ -1,6 +1,6 @@
 """OAuth 2.0 utilities for token exchange and refresh."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 
@@ -216,7 +216,7 @@ class OAuthHandler:
         expires_in = data.get("expires_in", 3600)  # Default 1 hour
 
         # Calculate absolute expiration time
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        expires_at = datetime.now(UTC) + timedelta(seconds=expires_in)
 
         # Parse scopes (can be string or list)
         scope = data.get("scope", "")

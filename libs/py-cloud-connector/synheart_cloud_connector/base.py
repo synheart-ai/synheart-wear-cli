@@ -1,18 +1,18 @@
 """Base class for all cloud wearable connectors."""
 
+import contextlib
 import uuid
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from .exceptions import OAuthError, RateLimitError
+from .exceptions import OAuthError
 from .jobs import JobQueue
 from .oauth import OAuthHandler
 from .rate_limit import RateLimiter
 from .tokens import TokenStore
 from .vendor_types import (
     OAuthTokens,
-    RateLimitConfig,
     VendorConfig,
     VendorType,
     WebhookEvent,
@@ -251,11 +251,8 @@ class CloudConnectorBase(ABC):
 
         if tokens:
             # Try to revoke with vendor
-            try:
+            with contextlib.suppress(Exception):
                 await self.oauth_handler.revoke_token(tokens.access_token)
-            except Exception:
-                # Log but don't fail - we'll still mark as revoked locally
-                pass
 
         # Mark as revoked in our database
         self.token_store.revoke_tokens(self.vendor, user_id)
@@ -297,7 +294,7 @@ class CloudConnectorBase(ABC):
             user_id=str(event_data.get("user_id")),
             resource_id=event_data.get("id"),
             trace_id=event_data.get("trace_id", str(uuid.uuid4())),
-            received_at=datetime.now(timezone.utc),
+            received_at=datetime.now(UTC),
             payload=event_data,
         )
 

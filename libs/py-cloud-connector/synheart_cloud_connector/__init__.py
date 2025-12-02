@@ -4,18 +4,18 @@ from .base import CloudConnectorBase
 from .exceptions import (
     CloudConnectorError,
     OAuthError,
+    RateLimitError,
     TokenError,
     WebhookError,
-    RateLimitError,
 )
+from .sync_state import SyncCursor, SyncState
 from .vendor_types import (
-    VendorType,
-    TokenStatus,
     EventType,
     OAuthTokens,
+    TokenStatus,
+    VendorType,
     WebhookEvent,
 )
-from .sync_state import SyncState, SyncCursor
 
 __version__ = "0.1.0"
 
