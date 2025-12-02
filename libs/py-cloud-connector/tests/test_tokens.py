@@ -4,24 +4,29 @@ Note: These tests require moto for AWS mocking.
 Run with: pytest tests/test_tokens.py
 """
 
-from datetime import datetime, timezone
-
 import pytest
 
-from synheart_cloud_connector.exceptions import TokenError
 from synheart_cloud_connector.tokens import TokenStore
 from synheart_cloud_connector.vendor_types import OAuthTokens, TokenStatus, VendorType
 
 # Import moto for mocking AWS services
 try:
-    from moto import mock_dynamodb, mock_kms
     import boto3
+    from moto import mock_dynamodb, mock_kms
 
     MOTO_AVAILABLE = True
 except ImportError:
     MOTO_AVAILABLE = False
-    mock_dynamodb = lambda: lambda f: f
-    mock_kms = lambda: lambda f: f
+
+    def mock_dynamodb():
+        def decorator(func):
+            return func
+        return decorator
+
+    def mock_kms():
+        def decorator(func):
+            return func
+        return decorator
 
 
 @pytest.mark.skipif(not MOTO_AVAILABLE, reason="moto not installed")

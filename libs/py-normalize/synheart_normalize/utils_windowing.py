@@ -214,7 +214,6 @@ def interpolate_missing_samples(
         result.append(current)
 
         # Check if there's a gap
-        expected_next = current.timestamp_utc + interval_delta
         time_diff = (next_sample.timestamp_utc - current.timestamp_utc).total_seconds()
 
         if time_diff > interval_seconds * 1.5:
