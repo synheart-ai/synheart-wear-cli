@@ -1,7 +1,7 @@
 # Synheart Wear CLI (`wear`)
 
-[![PyPI version](https://badge.fury.io/py/synheart-wear-cli.svg)](https://pypi.org/project/synheart-wear-cli/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/synheart-wear-cli.svg)](https://pypi.org/project/synheart-wear-cli/)
+[![PyPI version](https://badge.fury.io/py/synheart-wear-cli.svg)](https://pypi.org/project/synheart-wear-cli)
+[![Python Versions](https://img.shields.io/pypi/pyversions/synheart-wear-cli.svg)](https://pypi.org/project/synheart-wear-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/synheart-wear-cli)](https://pepy.tech/project/synheart-wear-cli)
 
