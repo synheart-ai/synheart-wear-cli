@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="synheart-wear-cli",
-    version="0.1.0",
+    version="0.1.1",
     description="Synheart Wear CLI - Cloud wearable integration tool",
     author="Israel Goytom",
     author_email="opensource@synheart.ai",
