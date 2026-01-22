@@ -7,12 +7,15 @@ from typing import Any
 # Lazy import boto3 - only import when actually needed
 try:
     from botocore.exceptions import ClientError
+
     HAS_BOTO3 = True
 except ImportError:
     HAS_BOTO3 = False
+
     # Create dummy classes for type hints when boto3 is not available
     class ClientError(Exception):
         pass
+
 
 from .exceptions import TokenError
 from .vendor_types import OAuthTokens, TokenRecord, TokenStatus, VendorType
@@ -44,6 +47,7 @@ class TokenStore:
                 "For local development, use MockTokenStore instead."
             )
         import boto3  # Import here to ensure it's available
+
         self.dynamodb = boto3.resource("dynamodb", region_name=region)
         self.table = self.dynamodb.Table(table_name)
         self.kms = boto3.client("kms", region_name=region)
@@ -70,9 +74,7 @@ class TokenStore:
             return base64.b64decode(ciphertext.encode()).decode()
 
         try:
-            response = self.kms.decrypt(
-                CiphertextBlob=base64.b64decode(ciphertext.encode())
-            )
+            response = self.kms.decrypt(CiphertextBlob=base64.b64decode(ciphertext.encode()))
             return response["Plaintext"].decode()
         except ClientError as e:
             raise TokenError(f"KMS decryption failed: {e}") from e
@@ -101,9 +103,7 @@ class TokenStore:
 
         # Encrypt tokens
         encrypted_access = self._encrypt(tokens.access_token)
-        encrypted_refresh = (
-            self._encrypt(tokens.refresh_token) if tokens.refresh_token else None
-        )
+        encrypted_refresh = self._encrypt(tokens.refresh_token) if tokens.refresh_token else None
 
         record = TokenRecord(
             pk=f"{vendor.value}:{user_id}",
@@ -159,9 +159,7 @@ class TokenStore:
 
             # Decrypt tokens
             access_token = self._decrypt(record.access_token)
-            refresh_token = (
-                self._decrypt(record.refresh_token) if record.refresh_token else None
-            )
+            refresh_token = self._decrypt(record.refresh_token) if record.refresh_token else None
 
             expires_at = datetime.fromtimestamp(record.expires_at, tz=UTC)
             expires_in = int((expires_at - datetime.now(UTC)).total_seconds())

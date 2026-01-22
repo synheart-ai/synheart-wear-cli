@@ -9,12 +9,15 @@ from datetime import UTC, datetime
 # This allows local dev mode to work without boto3 installed
 try:
     from botocore.exceptions import ClientError
+
     HAS_BOTO3 = True
 except ImportError:
     HAS_BOTO3 = False
+
     # Create dummy classes for type hints when boto3 is not available
     class ClientError(Exception):
         pass
+
 
 from .exceptions import EnqueueError
 from .vendor_types import SQSMessage, VendorType, WebhookEvent
@@ -48,6 +51,7 @@ class JobQueue:
 
         # Import boto3 only when actually instantiating (lazy import)
         import boto3  # Import here to ensure it's available
+
         self.sqs = boto3.client("sqs", region_name=region)
 
         # Get queue URL if not provided

@@ -21,11 +21,13 @@ except ImportError:
     def mock_dynamodb():
         def decorator(func):
             return func
+
         return decorator
 
     def mock_kms():
         def decorator(func):
             return func
+
         return decorator
 
 

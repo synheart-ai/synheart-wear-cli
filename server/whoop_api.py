@@ -10,18 +10,19 @@ from dotenv import load_dotenv
 
 # Load environment - check service directory first, then repo root
 # This allows CLI to override via --env flag
-if not os.getenv('WHOOP_CLIENT_ID'):  # Only auto-load if not already set
+if not os.getenv("WHOOP_CLIENT_ID"):  # Only auto-load if not already set
     from pathlib import Path
+
     repo_root = Path(__file__).parent.parent.parent
-    
+
     env_files_to_try = [
-        Path('.env.local'),      # Service directory
-        Path('.env.production'),  # Service directory
-        Path('.env'),             # Service directory
-        repo_root / '.env.local',  # Repo root (shared)
-        repo_root / '.env',      # Repo root (shared)
+        Path(".env.local"),  # Service directory
+        Path(".env.production"),  # Service directory
+        Path(".env"),  # Service directory
+        repo_root / ".env.local",  # Repo root (shared)
+        repo_root / ".env",  # Repo root (shared)
     ]
-    
+
     for env_file in env_files_to_try:
         if env_file.exists():
             load_dotenv(env_file)
@@ -39,6 +40,7 @@ from synheart_cloud_connector.vendor_types import RateLimitConfig, VendorConfig,
 # Note: We avoid importing JobQueue here to prevent boto3 import
 # We'll use MockJobQueue instead
 from synheart_cloud_connector.rate_limit import RateLimiter
+
 # Import SyncCursor type for type hints, but we'll use MockSyncState
 try:
     from synheart_cloud_connector.sync_state import SyncCursor
@@ -46,6 +48,7 @@ except ImportError:
     # If boto3 not available, create a simple type for local use
     from pydantic import BaseModel
     from typing import Optional
+
     class SyncCursor(BaseModel):
         vendor: str
         user_id: str
@@ -55,6 +58,7 @@ except ImportError:
         created_at: str
         updated_at: str
 
+
 # Mock token store for local testing
 class MockTokenStore:
     """Mock token store for local testing without AWS. Persists to disk."""
@@ -62,29 +66,32 @@ class MockTokenStore:
     def __init__(self, *args, **kwargs):
         import json
         from pathlib import Path
-        
+
         # Store tokens in __dev__ directory to persist across restarts
         self.tokens_file = Path(__file__).parent.parent.parent / "__dev__" / "tokens.json"
         self.tokens_file.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Load existing tokens from disk
         self.tokens = {}
         if self.tokens_file.exists():
             try:
-                with open(self.tokens_file, 'r') as f:
+                with open(self.tokens_file, "r") as f:
                     data = json.load(f)
                     # Reconstruct OAuthTokens objects from dict
                     from synheart_cloud_connector.vendor_types import OAuthTokens
                     from datetime import datetime, timezone
+
                     for key, token_data in data.items():
                         # Parse ISO datetime string back to datetime if present
-                        if token_data.get('expires_at'):
-                            if isinstance(token_data['expires_at'], str):
-                                dt = datetime.fromisoformat(token_data['expires_at'].replace('Z', '+00:00'))
+                        if token_data.get("expires_at"):
+                            if isinstance(token_data["expires_at"], str):
+                                dt = datetime.fromisoformat(
+                                    token_data["expires_at"].replace("Z", "+00:00")
+                                )
                                 # Ensure timezone-aware
                                 if dt.tzinfo is None:
                                     dt = dt.replace(tzinfo=timezone.utc)
-                                token_data['expires_at'] = dt
+                                token_data["expires_at"] = dt
                         self.tokens[key] = OAuthTokens(**token_data)
                 print(f"✓ Loaded {len(self.tokens)} token sets from {self.tokens_file}")
             except Exception as e:
@@ -96,19 +103,19 @@ class MockTokenStore:
         import json
         from datetime import datetime
         from synheart_cloud_connector.vendor_types import OAuthTokens
-        
+
         # Convert OAuthTokens objects to dict for JSON serialization
         data = {}
         for key, tokens in self.tokens.items():
             # Convert to dict
-            token_dict = tokens.model_dump(mode='json')
+            token_dict = tokens.model_dump(mode="json")
             # Convert datetime to ISO string if present
-            if token_dict.get('expires_at') and isinstance(token_dict['expires_at'], datetime):
-                token_dict['expires_at'] = token_dict['expires_at'].isoformat()
+            if token_dict.get("expires_at") and isinstance(token_dict["expires_at"], datetime):
+                token_dict["expires_at"] = token_dict["expires_at"].isoformat()
             data[key] = token_dict
-        
+
         try:
-            with open(self.tokens_file, 'w') as f:
+            with open(self.tokens_file, "w") as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
             print(f"⚠️  Failed to save tokens to disk: {e}")
@@ -120,6 +127,7 @@ class MockTokenStore:
         self._save_to_disk()
         from synheart_cloud_connector.vendor_types import TokenRecord, TokenStatus
         import datetime
+
         return TokenRecord(
             pk=key,
             sk=datetime.datetime.now().isoformat(),
@@ -147,6 +155,7 @@ class MockTokenStore:
             self._save_to_disk()
         print(f"✓ Revoked tokens for {key}")
 
+
 # Mock job queue for local testing
 class MockJobQueue:
     """Mock job queue for local testing without AWS SQS."""
@@ -156,13 +165,10 @@ class MockJobQueue:
 
     def enqueue_event(self, event, delay_seconds=0):
         message_id = f"msg_{len(self.messages)}"
-        self.messages.append({
-            'id': message_id,
-            'event': event,
-            'delay': delay_seconds
-        })
+        self.messages.append({"id": message_id, "event": event, "delay": delay_seconds})
         print(f"✓ Enqueued event: {event.event_type} for {event.user_id} (msg_id: {message_id})")
         return message_id
+
 
 # Mock sync state for local testing
 class MockSyncState:
@@ -177,6 +183,7 @@ class MockSyncState:
 
     def update_cursor(self, vendor, user_id, last_sync_ts, records_synced=0, last_resource_id=None):
         from datetime import datetime, timezone
+
         key = f"{vendor.value}:{user_id}"
         now = datetime.now(timezone.utc).isoformat()
 
@@ -212,7 +219,24 @@ class MockSyncState:
                 break
         return cursors
 
+
 from server.whoop_connector import WhoopConnector
+
+# Try to import flux integration (optional)
+try:
+    from server.flux_integration import (
+        is_flux_enabled,
+        process_whoop_to_hsi,
+        combine_whoop_collections_to_flux_input,
+    )
+
+    FLUX_INTEGRATION_AVAILABLE = True
+except ImportError:
+    FLUX_INTEGRATION_AVAILABLE = False
+
+    def is_flux_enabled() -> bool:
+        return False
+
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -268,7 +292,7 @@ v1_router = APIRouter(prefix="/v1", tags=["v1"])
 @app.get("/health")
 async def health_check() -> dict[str, Any]:
     """Health check endpoint."""
-    return {
+    health_data = {
         "status": "healthy",
         "version": "0.1.1-local",
         "service": "whoop-cloud-connector",
@@ -277,15 +301,23 @@ async def health_check() -> dict[str, Any]:
             "token_store": "mocked",
             "queue": "mocked",
             "rate_limiter": "ok",
-        }
+        },
     }
+
+    # Add flux status if available
+    if FLUX_INTEGRATION_AVAILABLE:
+        health_data["checks"]["flux"] = "available" if is_flux_enabled() else "disabled"
+    else:
+        health_data["checks"]["flux"] = "not_available"
+
+    return health_data
 
 
 @v1_router.get("/oauth/authorize")
 async def authorize(redirect_uri: str, state: str | None = None) -> dict[str, Any]:
     """
     Get OAuth authorization URL.
-    
+
     This endpoint generates a URL that points to WHOOP's authorization server.
     The user must visit this URL in their browser to authorize the application.
     """
@@ -294,18 +326,20 @@ async def authorize(redirect_uri: str, state: str | None = None) -> dict[str, An
             redirect_uri=redirect_uri,
             state=state,
         )
-        
+
         return {
             "authorization_url": auth_url,
             "redirect_uri": redirect_uri,
             "state": state or "",
             "note": "Visit this URL in your browser to authorize. After authorization, you'll be redirected back.",
-            "instructions": "\n".join([
-                "1. Visit the authorization_url in your browser",
-                "2. Log in to your WHOOP account",
-                "3. Click 'Authorize' to grant access",
-                f"4. You'll be redirected to: {redirect_uri}?code=...&state={state or ''}"
-            ])
+            "instructions": "\n".join(
+                [
+                    "1. Visit the authorization_url in your browser",
+                    "2. Log in to your WHOOP account",
+                    "3. Click 'Authorize' to grant access",
+                    f"4. You'll be redirected to: {redirect_uri}?code=...&state={state or ''}",
+                ]
+            ),
         }
     except Exception as e:
         raise HTTPException(
@@ -313,8 +347,8 @@ async def authorize(redirect_uri: str, state: str | None = None) -> dict[str, An
             detail={
                 "error": "Failed to generate authorization URL",
                 "message": str(e),
-                "vendor": "whoop"
-            }
+                "vendor": "whoop",
+            },
         )
 
 
@@ -341,7 +375,7 @@ async def oauth_callback_get(
             "user_id": user_id,
             "expires_in": tokens.expires_in,
             "scopes": tokens.scopes,
-            "note": "Real WHOOP tokens obtained and saved"
+            "note": "Real WHOOP tokens obtained and saved",
         }
 
     except OAuthError as e:
@@ -365,8 +399,8 @@ async def webhook_handler(request: Request) -> JSONResponse:
             content={
                 "status": "success",
                 "message_id": message_id,
-                "note": "Webhook processed and enqueued (local test mode)"
-            }
+                "note": "Webhook processed and enqueued (local test mode)",
+            },
         )
 
     except WebhookError as e:
@@ -512,8 +546,13 @@ async def fetch_user_profile(user_id: str) -> dict[str, Any]:
 @v1_router.post("/pull/{user_id}")
 async def pull_data(
     user_id: str,
-    resource_types: list[str] | None = Query(None, description="Resource types to pull (recovery, sleep, workout, cycle). Defaults to all."),
-    since: str | None = Query(None, description="Start date (ISO8601 format). If not provided, uses last sync cursor."),
+    resource_types: list[str] | None = Query(
+        None,
+        description="Resource types to pull (recovery, sleep, workout, cycle). Defaults to all.",
+    ),
+    since: str | None = Query(
+        None, description="Start date (ISO8601 format). If not provided, uses last sync cursor."
+    ),
     limit: int = Query(25, ge=1, le=100, description="Maximum records per resource type"),
 ) -> dict[str, Any]:
     """
@@ -588,10 +627,11 @@ async def pull_data(
             except Exception as e:
                 # Catch any other exceptions (e.g., OAuthError, network errors)
                 import traceback
+
                 results[resource_type] = {
                     "error": str(e),
                     "error_type": type(e).__name__,
-                    "traceback": traceback.format_exc()  # Always include for debugging
+                    "traceback": traceback.format_exc(),  # Always include for debugging
                 }
 
         # Update sync cursor with new timestamp
@@ -602,7 +642,7 @@ async def pull_data(
             records_synced=total_records,
         )
 
-        return {
+        response_data = {
             "status": "success",
             "vendor": "whoop",
             "user_id": user_id,
@@ -614,6 +654,30 @@ async def pull_data(
             "note": "Data pulled from real WHOOP API (local dev mode with mocked cursor tracking)",
         }
 
+        # Optionally convert to HSI format if flux is enabled
+        if FLUX_INTEGRATION_AVAILABLE and is_flux_enabled():
+            try:
+                # Combine all collections for flux processing
+                flux_input = combine_whoop_collections_to_flux_input(
+                    recovery=results.get("recovery", {}).get("data", []),
+                    sleep=results.get("sleep", {}).get("data", []),
+                    workout=results.get("workout", {}).get("data", []),
+                    cycle=results.get("cycle", {}).get("data", []),
+                )
+
+                # Get timezone from user profile or default to UTC
+                timezone = "UTC"  # Could fetch from user profile
+                device_id = f"whoop-{user_id}"
+
+                hsi_payloads = process_whoop_to_hsi(flux_input, timezone, device_id)
+                response_data["hsi_payloads"] = hsi_payloads
+                response_data["hsi_count"] = len(hsi_payloads)
+            except Exception as e:
+                # Don't fail the pull if HSI conversion fails, just log it
+                response_data["hsi_error"] = str(e)
+
+        return response_data
+
     except RateLimitError as e:
         raise HTTPException(status_code=429, detail=e.to_dict())
     except CloudConnectorError as e:
@@ -621,13 +685,132 @@ async def pull_data(
     except Exception as e:
         # Catch any unexpected errors and return them
         import traceback
+
         raise HTTPException(
             status_code=500,
             detail={
                 "error": str(e),
                 "error_type": type(e).__name__,
-                "traceback": traceback.format_exc() if os.getenv("DEBUG", "false").lower() == "true" else None
-            }
+                "traceback": (
+                    traceback.format_exc()
+                    if os.getenv("DEBUG", "false").lower() == "true"
+                    else None
+                ),
+            },
+        )
+
+
+# ============================================================================
+# HSI Conversion Endpoints (Flux)
+# ============================================================================
+
+
+@v1_router.post("/hsi/{user_id}/convert")
+async def convert_to_hsi(
+    user_id: str,
+    request: Request,
+    timezone: str = Query("UTC", description="User's timezone (e.g., America/New_York)"),
+    device_id: str | None = Query(
+        None, description="Device identifier (defaults to whoop-{user_id})"
+    ),
+) -> dict[str, Any]:
+    """
+    Convert WHOOP data to HSI format using Flux.
+
+    This endpoint accepts WHOOP data (either via request body or by fetching from API)
+    and converts it to HSI-compliant JSON using the Flux processing engine.
+
+    Requires: USE_FLUX=true environment variable
+    """
+    if not FLUX_INTEGRATION_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Flux integration not available",
+                "message": "Flux binary integration not available",
+            },
+        )
+
+    if not is_flux_enabled():
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Flux processing is disabled",
+                "message": "Set USE_FLUX=true environment variable to enable",
+            },
+        )
+
+    try:
+        # Try to get data from request body
+        body_data = {}
+        try:
+            body_data = await request.json()
+        except Exception:
+            pass  # No body data, will fetch from API
+
+        recovery = body_data.get("recovery")
+        sleep = body_data.get("sleep")
+        workout = body_data.get("workout")
+        cycle = body_data.get("cycle")
+
+        # If no data provided in body, fetch from API
+        if not any([recovery, sleep, workout, cycle]):
+            # Fetch all collections
+            recovery_data = await whoop.fetch_recovery_collection(user_id, limit=25)
+            sleep_data = await whoop.fetch_sleep_collection(user_id, limit=25)
+            workout_data = await whoop.fetch_workout_collection(user_id, limit=25)
+            cycle_data = await whoop.fetch_cycle_collection(user_id, limit=25)
+
+            recovery = recovery_data.get("records", [])
+            sleep = sleep_data.get("records", [])
+            workout = workout_data.get("records", [])
+            cycle = cycle_data.get("records", [])
+
+        # Combine collections for flux
+        flux_input = combine_whoop_collections_to_flux_input(
+            recovery=recovery or [],
+            sleep=sleep or [],
+            workout=workout or [],
+            cycle=cycle or [],
+        )
+
+        if device_id is None:
+            device_id = f"whoop-{user_id}"
+
+        # Convert to HSI
+        hsi_payloads = process_whoop_to_hsi(flux_input, timezone, device_id)
+
+        return {
+            "status": "success",
+            "vendor": "whoop",
+            "user_id": user_id,
+            "timezone": timezone,
+            "device_id": device_id,
+            "hsi_payloads": hsi_payloads,
+            "hsi_count": len(hsi_payloads),
+            "input_counts": {
+                "recovery": len(flux_input.get("recovery", [])),
+                "sleep": len(flux_input.get("sleep", [])),
+                "workout": len(flux_input.get("workout", [])),
+                "cycle": len(flux_input.get("cycle", [])),
+            },
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"error": str(e)})
+    except Exception as e:
+        import traceback
+
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "traceback": (
+                    traceback.format_exc()
+                    if os.getenv("DEBUG", "false").lower() == "true"
+                    else None
+                ),
+            },
         )
 
 
@@ -646,6 +829,7 @@ async def cloud_connector_error_handler(request: Request, exc: CloudConnectorErr
 
 if __name__ == "__main__":
     import uvicorn
+
     print("🚀 Starting WHOOP connector in LOCAL DEV mode")
     print("📝 Using mocked AWS services (DynamoDB, SQS, KMS)")
     print("🔗 Server running at: http://localhost:8000")

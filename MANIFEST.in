@@ -12,10 +12,16 @@ include __version__.py
 # Include server package
 recursive-include server *.py
 
-# Include internal libraries
-recursive-include libs *.py
-recursive-include libs *.toml
-recursive-include libs *.md
+# Include internal libraries (only those used at runtime)
+recursive-include libs/py-cloud-connector *.py
+recursive-include libs/py-cloud-connector *.toml
+recursive-include libs/py-cloud-connector *.md
+recursive-include libs/py-normalize *.py
+recursive-include libs/py-normalize *.toml
+recursive-include libs/py-normalize *.md
+
+# Include helper scripts (dev-only, but useful)
+recursive-include scripts *.sh
 
 # Exclude development and cache files
 recursive-exclude * __pycache__

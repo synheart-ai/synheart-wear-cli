@@ -98,9 +98,7 @@ class TestOAuthHandler:
             "error_description": "Invalid authorization code",
         }
 
-        with patch.object(
-            oauth_handler.http_client, "post", return_value=mock_response
-        ):
+        with patch.object(oauth_handler.http_client, "post", return_value=mock_response):
             with pytest.raises(OAuthError) as exc_info:
                 await oauth_handler.exchange_code(
                     code="invalid_code",
@@ -119,9 +117,7 @@ class TestOAuthHandler:
             # Missing access_token
         }
 
-        with patch.object(
-            oauth_handler.http_client, "post", return_value=mock_response
-        ):
+        with patch.object(oauth_handler.http_client, "post", return_value=mock_response):
             with pytest.raises(OAuthError) as exc_info:
                 await oauth_handler.exchange_code(
                     code="auth_code",
@@ -144,9 +140,7 @@ class TestOAuthHandler:
         with patch.object(
             oauth_handler.http_client, "post", return_value=mock_response
         ) as mock_post:
-            tokens = await oauth_handler.refresh_token(
-                refresh_token="old_refresh_token"
-            )
+            tokens = await oauth_handler.refresh_token(refresh_token="old_refresh_token")
 
             assert tokens.access_token == "new_access_token"
             assert tokens.refresh_token == "new_refresh_token"
@@ -164,9 +158,7 @@ class TestOAuthHandler:
         mock_response.text = "Invalid refresh token"
         mock_response.json.return_value = {"error": "invalid_grant"}
 
-        with patch.object(
-            oauth_handler.http_client, "post", return_value=mock_response
-        ):
+        with patch.object(oauth_handler.http_client, "post", return_value=mock_response):
             with pytest.raises(OAuthError) as exc_info:
                 await oauth_handler.refresh_token(refresh_token="invalid_token")
 
@@ -178,9 +170,7 @@ class TestOAuthHandler:
         mock_response = MagicMock(spec=Response)
         mock_response.status_code = 200
 
-        with patch.object(
-            oauth_handler.http_client, "post", return_value=mock_response
-        ):
+        with patch.object(oauth_handler.http_client, "post", return_value=mock_response):
             result = await oauth_handler.revoke_token(
                 token="access_token_123",
                 token_type="access_token",

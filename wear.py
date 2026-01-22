@@ -40,7 +40,7 @@ if (CLI_ROOT / "libs" / "py-normalize").exists():
 try:
     from __version__ import __version__
 except ImportError:
-    __version__ = "0.1.0"
+    __version__ = "0.1.1"
 
 console = Console()
 
@@ -50,11 +50,15 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+
 def version_callback(value: bool):
     """Show version and exit."""
     if value:
-        console.print(f"[bold cyan]Synheart Wear CLI[/bold cyan] version [green]{__version__}[/green]")
+        console.print(
+            f"[bold cyan]Synheart Wear CLI[/bold cyan] version [green]{__version__}[/green]"
+        )
         raise typer.Exit()
+
 
 @app.callback()
 def main(
@@ -75,46 +79,49 @@ def main(
 # Helper Functions
 # ============================================================================
 
+
 def _is_port_available(port: int) -> bool:
     """Check if a port is available."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            s.bind(('localhost', port))
+            s.bind(("localhost", port))
             return True
         except OSError:
             return False
+
 
 def _check_port_and_suggest(port: int) -> bool:
     """Check if port is available, suggest solution if not."""
     if _is_port_available(port):
         return True
-    
+
     console.print(f"[red]❌ Port {port} is already in use[/red]")
     console.print()
-    
+
     # Try to find what's using it
     import subprocess
+
     try:
         result = subprocess.run(
-            ["lsof", "-i", f":{port}"],
-            capture_output=True,
-            text=True,
-            timeout=2
+            ["lsof", "-i", f":{port}"], capture_output=True, text=True, timeout=2
         )
         if result.returncode == 0 and result.stdout:
             console.print("[yellow]Process using the port:[/yellow]")
-            lines = result.stdout.strip().split('\n')
+            lines = result.stdout.strip().split("\n")
             if len(lines) > 1:
                 console.print(f"   [dim]{lines[1]}[/dim]")
                 console.print()
                 console.print("[yellow]💡 Solutions:[/yellow]")
                 console.print(f"   1. Kill the process: [cyan]kill $(lsof -ti :{port})[/cyan]")
-                console.print(f"   2. Use a different port: [cyan]wear start dev --port 8001[/cyan]")
+                console.print(
+                    f"   2. Use a different port: [cyan]wear start dev --port 8001[/cyan]"
+                )
     except Exception:
         pass
-    
+
     console.print()
     return False
+
 
 def _show_available_data(vendor: str, port: int, base_url: str):
     """Show available users and their data counts."""
@@ -123,11 +130,12 @@ def _show_available_data(vendor: str, port: int, base_url: str):
         tokens_file = CLI_ROOT / "__dev__" / "tokens.json"
         if not tokens_file.exists():
             return
-        
+
         import json
-        with open(tokens_file, 'r') as f:
+
+        with open(tokens_file, "r") as f:
             tokens_data = json.load(f)
-        
+
         # Find users for this vendor
         # Token keys are in format "vendor:user_id"
         users = []
@@ -135,35 +143,38 @@ def _show_available_data(vendor: str, port: int, base_url: str):
             for user_key, user_data in tokens_data.items():
                 if isinstance(user_data, dict):
                     # Extract vendor and user_id from key format "vendor:user_id"
-                    if ':' in user_key:
-                        key_vendor, user_id = user_key.split(':', 1)
-                        if key_vendor.lower() == vendor.lower() and user_data.get('has_tokens', False):
+                    if ":" in user_key:
+                        key_vendor, user_id = user_key.split(":", 1)
+                        if key_vendor.lower() == vendor.lower() and user_data.get(
+                            "has_tokens", False
+                        ):
                             users.append(user_id)
-        
+
         if not users:
             return
-        
+
         console.print(f"[bold]📊 Available Data:[/bold]")
-        
+
         # Try to fetch data counts for each user
         import httpx
+
         with httpx.Client(timeout=2.0) as client:
             for user_id in users[:5]:  # Limit to first 5 users
                 try:
                     # Try to get recovery count as a sample
                     response = client.get(
-                        f"{base_url}/v1/data/{user_id}/recovery",
-                        params={"limit": 1},
-                        timeout=1.0
+                        f"{base_url}/v1/data/{user_id}/recovery", params={"limit": 1}, timeout=1.0
                     )
                     if response.status_code == 200:
                         data = response.json()
-                        record_count = len(data.get('records', []))
+                        record_count = len(data.get("records", []))
                         if record_count > 0:
-                            console.print(f"   [cyan]{user_id}[/cyan]: [green]{record_count}+ records[/green]")
+                            console.print(
+                                f"   [cyan]{user_id}[/cyan]: [green]{record_count}+ records[/green]"
+                            )
                 except Exception:
                     pass  # Skip if can't fetch
-                    
+
         if len(users) > 5:
             console.print(f"   ... and {len(users) - 5} more users")
         console.print()
@@ -194,45 +205,47 @@ def _open_oauth_browser(vendor: str, port: int, is_local_test: bool = False):
         # Unified service uses vendor-prefixed routes
         oauth_authorize_path = f"/v1/{vendor}-cloud/oauth/authorize"
         oauth_callback_path = f"/v1/{vendor}-cloud/oauth/callback"
-    
+
     # Generate redirect URI and state
     redirect_uri = f"http://localhost:{port}{oauth_callback_path}"
     state = f"dev_user_{int(time.time())}"
-    
+
     # First, call the local API endpoint to get the actual WHOOP authorization URL
     local_endpoint = f"http://localhost:{port}{oauth_authorize_path}"
     params = {
         "redirect_uri": redirect_uri,
         "state": state,
     }
-    
+
     console.print()
     console.print("[bold green]🌐 Getting OAuth authorization URL...[/bold green]")
-    
+
     try:
         with httpx.Client(timeout=10.0) as client:
             response = client.get(local_endpoint, params=params)
             if response.status_code != 200:
-                console.print(f"[red]❌ Failed to get authorization URL: {response.status_code}[/red]")
+                console.print(
+                    f"[red]❌ Failed to get authorization URL: {response.status_code}[/red]"
+                )
                 console.print(f"   Response: {response.text[:200]}")
                 return
-            
+
             data = response.json()
             whoop_auth_url = data.get("authorization_url")
-            
+
             if not whoop_auth_url:
                 console.print(f"[red]❌ No authorization_url in response[/red]")
                 console.print(f"   Response: {data}")
                 return
-            
+
             # Now open the actual WHOOP authorization URL
             console.print(f"[green]✅ Got authorization URL[/green]")
             console.print(f"   Opening: [cyan]{whoop_auth_url[:80]}...[/cyan]")
             console.print()
-    
+
             # Try to open browser - use multiple methods for better compatibility
             opened = False
-            
+
             # Method 1: Python webbrowser module
             try:
                 opened = webbrowser.open(whoop_auth_url)
@@ -240,36 +253,40 @@ def _open_oauth_browser(vendor: str, port: int, is_local_test: bool = False):
                     console.print("[green]✅ Browser opened successfully[/green]")
             except Exception as e:
                 console.print(f"[yellow]⚠️  webbrowser.open() failed: {e}[/yellow]")
-            
+
             # Method 2: macOS 'open' command (fallback)
             if not opened:
                 import platform
+
                 if platform.system() == "Darwin":  # macOS
                     import subprocess
+
                     try:
                         subprocess.run(["open", whoop_auth_url], check=True, timeout=2)
                         console.print("[green]✅ Browser opened via 'open' command[/green]")
                         opened = True
                     except Exception as e:
                         console.print(f"[yellow]⚠️  'open' command failed: {e}[/yellow]")
-            
+
             # Method 3: Linux xdg-open
             if not opened:
                 import platform
+
                 if platform.system() == "Linux":
                     import subprocess
+
                     try:
                         subprocess.run(["xdg-open", whoop_auth_url], check=True, timeout=2)
                         console.print("[green]✅ Browser opened via 'xdg-open'[/green]")
                         opened = True
                     except Exception as e:
                         console.print(f"[yellow]⚠️  'xdg-open' failed: {e}[/yellow]")
-            
+
             if not opened:
                 console.print()
                 console.print("[yellow]⚠️  Could not automatically open browser[/yellow]")
                 console.print(f"   Please open manually: [cyan]{whoop_auth_url}[/cyan]")
-            
+
             console.print()
             console.print("[yellow]📝 Instructions:[/yellow]")
             console.print("   1. Log in to your WHOOP account in the browser")
@@ -277,13 +294,14 @@ def _open_oauth_browser(vendor: str, port: int, is_local_test: bool = False):
             console.print(f"   3. You'll be redirected to: {redirect_uri}")
             console.print("   4. Check logs below for OAuth completion status")
             console.print()
-            
+
     except httpx.RequestError as e:
         console.print(f"[red]❌ Failed to connect to server: {e}[/red]")
         console.print(f"   Make sure the server is running on port {port}")
     except Exception as e:
         console.print(f"[red]❌ Error: {e}[/red]")
         import traceback
+
         console.print(f"[dim]{traceback.format_exc()}[/dim]")
 
 
@@ -291,23 +309,39 @@ def _open_oauth_browser(vendor: str, port: int, is_local_test: bool = False):
 # START Command - Local Development Server
 # ============================================================================
 
+
 @app.command()
 def start(
     mode: str = typer.Argument("dev", help="Mode: dev or live"),
-    vendor: Optional[str] = typer.Option(None, "--vendor", "-v", help="Vendor to run (whoop, garmin, all)"),
+    vendor: Optional[str] = typer.Option(
+        None, "--vendor", "-v", help="Vendor to run (whoop, garmin, all)"
+    ),
     port: int = typer.Option(8000, "--port", "-p", help="Port to run on"),
     reload: bool = typer.Option(True, "--reload/--no-reload", help="Auto-reload on code changes"),
-    env_file: Optional[str] = typer.Option(None, "--env", help="Environment file (.env.production, .env.test)"),
-    open_browser: bool = typer.Option(False, "--open-browser", help="Open OAuth authorization URL in default browser"),
-    webhook_record: bool = typer.Option(True, "--webhook-record/--no-webhook-record", help="Enable webhook recording (dev mode only)"),
+    env_file: Optional[str] = typer.Option(
+        None, "--env", help="Environment file (.env.production, .env.test)"
+    ),
+    open_browser: bool = typer.Option(
+        False, "--open-browser", help="Open OAuth authorization URL in default browser"
+    ),
+    webhook_record: bool = typer.Option(
+        True,
+        "--webhook-record/--no-webhook-record",
+        help="Enable webhook recording (dev mode only)",
+    ),
+    use_flux: bool = typer.Option(
+        False,
+        "--use-flux/--no-flux",
+        help="Enable Flux HSI processing (requires Flux binary; see FLUX_INTEGRATION.md)",
+    ),
     verbose: bool = typer.Option(False, "--verbose", help="Verbose logging"),
 ):
     """
     Unified command to start Synheart Wear service.
-    
+
     In dev mode: Enables auto-reload, webhook recording, verbose logging.
     In live mode: Production-optimized settings.
-    
+
     Examples:
         wear start dev --vendor whoop --open-browser
         wear start dev --port 8000 --verbose
@@ -322,8 +356,14 @@ def start(
     console.print(f"   Mode:           [cyan]{mode}[/cyan]")
     console.print(f"   Vendor:         [cyan]{vendor or 'all'}[/cyan]")
     console.print(f"   Port:           [cyan]{port}[/cyan]")
-    console.print(f"   Auto-reload:    {'✅ enabled' if reload and mode == 'dev' else '❌ disabled'}")
-    console.print(f"   Webhook record: {'✅ enabled' if webhook_record and mode == 'dev' else '❌ disabled'}")
+    console.print(
+        f"   Auto-reload:    {'✅ enabled' if reload and mode == 'dev' else '❌ disabled'}"
+    )
+    console.print(
+        f"   Webhook record: {'✅ enabled' if webhook_record and mode == 'dev' else '❌ disabled'}"
+    )
+    if use_flux:
+        console.print(f"   Flux HSI:       [cyan]✅ enabled[/cyan]")
     if verbose:
         console.print(f"   Verbose:        [cyan]✅ enabled[/cyan]")
     console.print()
@@ -353,8 +393,10 @@ def start(
 
     # Set environment
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{CLI_ROOT}/libs/py-cloud-connector:{CLI_ROOT}/libs/py-normalize:{env.get('PYTHONPATH', '')}"
-    
+    env["PYTHONPATH"] = (
+        f"{CLI_ROOT}/libs/py-cloud-connector:{CLI_ROOT}/libs/py-normalize:{env.get('PYTHONPATH', '')}"
+    )
+
     # Enable dev mode features
     if mode == "dev":
         env["DEV_MODE"] = "true"
@@ -364,9 +406,11 @@ def start(
             dev_dir = CLI_ROOT / "__dev__"
             dev_dir.mkdir(exist_ok=True)
             env["WEBHOOK_RECORD_PATH"] = str(dev_dir / "webhooks_recent.jsonl")
+        if use_flux:
+            env["USE_FLUX"] = "true"
         if verbose:
             env["LOG_LEVEL"] = "DEBUG"
-    
+
     # Load environment file
     # Priority: --env flag > .env.local (dev mode) > .env (any mode)
     # Ensure env_file is a string, not a Typer OptionInfo object
@@ -375,6 +419,7 @@ def start(
         if env_path.exists():
             console.print(f"[green]📝 Loading environment from:[/green] [cyan]{env_file}[/cyan]")
             from dotenv import load_dotenv
+
             load_dotenv(env_path, override=True)
         else:
             console.print(f"[yellow]⚠️  Environment file not found: {env_file}[/yellow]")
@@ -394,22 +439,27 @@ def start(
             ]
 
         from dotenv import load_dotenv
+
         env_loaded = False
         for env_path in env_files_to_try:
             if env_path.exists():
                 load_dotenv(env_path, override=True)
-                console.print(f"[green]📝 Auto-loaded environment from:[/green] [cyan]{env_path.name}[/cyan]")
+                console.print(
+                    f"[green]📝 Auto-loaded environment from:[/green] [cyan]{env_path.name}[/cyan]"
+                )
                 env_loaded = True
                 break
 
         if not env_loaded:
-            console.print(f"[dim]💡 No environment file found. Using system environment variables.[/dim]")
+            console.print(
+                f"[dim]💡 No environment file found. Using system environment variables.[/dim]"
+            )
             console.print(f"   Create [cyan].env.local[/cyan] in CLI directory")
             console.print(f"   Or use: [cyan]wear start {mode} --env .env.local[/cyan]")
 
     # Determine route prefix - whoop_api uses local test routes
     is_local_test = script == "whoop_api"
-    
+
     # Display endpoints
     console.print(f"[bold]🌐 Endpoints:[/bold]")
     base_url = f"http://localhost:{port}"
@@ -420,26 +470,32 @@ def start(
             console.print(f"   OAuth Auth:    [cyan]{base_url}/v1/oauth/authorize[/cyan]")
             console.print(f"   Webhooks:      [cyan]{base_url}/v1/webhooks/{vendor}[/cyan]")
         else:
-            console.print(f"   OAuth Auth:    [cyan]{base_url}/v1/{vendor}-cloud/oauth/authorize[/cyan]")
-            console.print(f"   Webhooks:      [cyan]{base_url}/v1/{vendor}-cloud/webhooks/{vendor}[/cyan]")
+            console.print(
+                f"   OAuth Auth:    [cyan]{base_url}/v1/{vendor}-cloud/oauth/authorize[/cyan]"
+            )
+            console.print(
+                f"   Webhooks:      [cyan]{base_url}/v1/{vendor}-cloud/webhooks/{vendor}[/cyan]"
+            )
     else:
-        console.print(f"   Webhooks:      [cyan]{base_url}/v1/{{vendor}}-cloud/webhooks/{{vendor}}[/cyan]")
+        console.print(
+            f"   Webhooks:      [cyan]{base_url}/v1/{{vendor}}-cloud/webhooks/{{vendor}}[/cyan]"
+        )
     console.print()
-    
+
     # Show available users and data (dev mode only)
     if mode == "dev" and vendor:
         _show_available_data(vendor, port, base_url)
-    
+
     # Webhook recording info
     if webhook_record and mode == "dev":
         console.print(f"[green]💾 Webhook recording enabled[/green]")
         console.print(f"   Saving to: [cyan]__dev__/webhooks_recent.jsonl[/cyan]")
         console.print(f"   Inspect with: [cyan]wear webhook inspect[/cyan]")
         console.print()
-    
+
     console.print("[dim]Press Ctrl+C to stop[/dim]")
     console.print()
-    
+
     # Check if port is available before starting
     if not _check_port_and_suggest(port):
         raise typer.Exit(1)
@@ -456,7 +512,7 @@ def start(
             console.print()
             console.print("pyngrok is needed to expose your local server so the SDK can pull data.")
             raise typer.Exit(1)
-        
+
         # Check if ngrok is already running for this port
         ngrok_running = False
         ngrok_url = None
@@ -482,7 +538,7 @@ def start(
         except Exception as e:
             # If we can't get tunnels, that's okay - we'll try to start fresh
             pass
-        
+
         # Start ngrok if not running
         if not ngrok_running:
             console.print("[bold]🌐 Starting ngrok tunnel...[/bold]")
@@ -490,17 +546,17 @@ def start(
                 # Start ngrok tunnel
                 tunnel = ngrok.connect(port, "http")
                 ngrok_url = tunnel.public_url
-                
+
                 console.print(f"[green]✅ ngrok tunnel started:[/green] [cyan]{ngrok_url}[/cyan]")
                 console.print()
                 console.print(f"[bold]📱 SDK Configuration:[/bold]")
                 console.print(f"   Use this URL in your Flutter app:")
                 console.print(f"   [cyan]baseUrl: '{ngrok_url}'[/cyan]")
                 console.print()
-                
+
                 # Store tunnel for cleanup
                 env["NGROK_TUNNEL"] = tunnel.name
-                
+
             except Exception as e:
                 error_str = str(e)
                 # Check if error is about existing endpoint
@@ -508,7 +564,7 @@ def start(
                     console.print(f"[yellow]⚠️  ngrok endpoint conflict detected[/yellow]")
                     console.print()
                     console.print("[yellow]💡 Trying to resolve...[/yellow]")
-                    
+
                     # Try to disconnect all existing tunnels first
                     try:
                         # Get all tunnels and disconnect them individually
@@ -517,40 +573,50 @@ def start(
                             for tunnel in tunnels:
                                 try:
                                     ngrok.disconnect(tunnel.public_url)
-                                    console.print(f"[dim]   Disconnected tunnel: {tunnel.public_url}[/dim]")
+                                    console.print(
+                                        f"[dim]   Disconnected tunnel: {tunnel.public_url}[/dim]"
+                                    )
                                 except Exception:
                                     pass
-                        
+
                         # Also try to kill the ngrok process
                         ngrok.kill()
                         console.print("[dim]   Killed local ngrok process[/dim]")
-                        
+
                         # Wait longer for cleanup (remote endpoint might need time)
                         import time
+
                         time.sleep(2)
-                        
+
                         # Try to start again
                         tunnel = ngrok.connect(port, "http")
                         ngrok_url = tunnel.public_url
-                        
-                        console.print(f"[green]✅ ngrok tunnel started:[/green] [cyan]{ngrok_url}[/cyan]")
+
+                        console.print(
+                            f"[green]✅ ngrok tunnel started:[/green] [cyan]{ngrok_url}[/cyan]"
+                        )
                         console.print()
                         console.print(f"[bold]📱 SDK Configuration:[/bold]")
                         console.print(f"   Use this URL in your Flutter app:")
                         console.print(f"   [cyan]baseUrl: '{ngrok_url}'[/cyan]")
                         console.print()
-                        
+
                         env["NGROK_TUNNEL"] = tunnel.name
-                        
+
                     except Exception as e2:
                         # If auto-resolution fails, extract the conflicting endpoint from error
                         import re
-                        endpoint_match = re.search(r"https://([a-zA-Z0-9\-]+\.ngrok-free\.dev)", error_str)
+
+                        endpoint_match = re.search(
+                            r"https://([a-zA-Z0-9\-]+\.ngrok-free\.dev)", error_str
+                        )
                         conflicting_endpoint = endpoint_match.group(1) if endpoint_match else None
-                        
+
                         console.print(f"[red]❌ Could not resolve ngrok conflict[/red]")
                         if conflicting_endpoint:
-                            console.print(f"   [dim]Conflicting endpoint: {conflicting_endpoint}[/dim]")
+                            console.print(
+                                f"   [dim]Conflicting endpoint: {conflicting_endpoint}[/dim]"
+                            )
                         console.print()
                         console.print("[yellow]💡 This usually means:[/yellow]")
                         console.print("   • An ngrok tunnel is running in another terminal")
@@ -559,7 +625,9 @@ def start(
                         console.print()
                         console.print("[yellow]💡 Manual fixes:[/yellow]")
                         console.print("   1. [bold]Stop all ngrok processes:[/bold]")
-                        console.print("      [cyan]pkill -f ngrok[/cyan]  # or [cyan]ngrok kill[/cyan]")
+                        console.print(
+                            "      [cyan]pkill -f ngrok[/cyan]  # or [cyan]ngrok kill[/cyan]"
+                        )
                         console.print()
                         console.print("   2. [bold]Use a different port:[/bold]")
                         console.print(f"      [cyan]wear start dev --port {port + 1}[/cyan]")
@@ -575,8 +643,12 @@ def start(
                     console.print(f"[red]❌ Could not start ngrok: {e}[/red]")
                     console.print()
                     console.print("[yellow]💡 Troubleshooting:[/yellow]")
-                    console.print("   1. Make sure you have an ngrok account (free): https://ngrok.com/")
-                    console.print("   2. Set your authtoken: [cyan]ngrok config add-authtoken YOUR_TOKEN[/cyan]")
+                    console.print(
+                        "   1. Make sure you have an ngrok account (free): https://ngrok.com/"
+                    )
+                    console.print(
+                        "   2. Set your authtoken: [cyan]ngrok config add-authtoken YOUR_TOKEN[/cyan]"
+                    )
                     console.print("   3. Or install pyngrok: [cyan]pip install pyngrok[/cyan]")
                     raise typer.Exit(1)
 
@@ -586,9 +658,11 @@ def start(
 
     # If browser opening is requested, start server first then open browser
     if open_browser and vendor and vendor != "all":
+
         def open_browser_after_start():
             # Wait for server to be ready - try to connect to health endpoint
             import httpx
+
             max_retries = 10
             for i in range(max_retries):
                 try:
@@ -603,9 +677,11 @@ def start(
                 time_module.sleep(0.5)
 
             # Fallback: if health check fails, try opening anyway after timeout
-            console.print("[yellow]⚠️  Server may not be fully ready, opening browser anyway...[/yellow]")
+            console.print(
+                "[yellow]⚠️  Server may not be fully ready, opening browser anyway...[/yellow]"
+            )
             _open_oauth_browser(vendor, port, is_local_test)
-        
+
         browser_thread = threading.Thread(target=open_browser_after_start, daemon=True)
         browser_thread.start()
 
@@ -613,8 +689,10 @@ def start(
     cmd = [
         "uvicorn",
         f"server.{script}:app",  # e.g. server.whoop_api:app
-        "--host", "0.0.0.0",
-        "--port", str(port),
+        "--host",
+        "0.0.0.0",
+        "--port",
+        str(port),
     ]
 
     if reload and mode == "dev":
@@ -626,6 +704,7 @@ def start(
         # Try to get the tunnel URL from the tunnel name
         try:
             from pyngrok import ngrok
+
             tunnel_name = env.get("NGROK_TUNNEL")
             tunnels = ngrok.get_tunnels()
             for tunnel in tunnels:
@@ -641,20 +720,22 @@ def start(
         if ngrok_tunnel_url:
             try:
                 from pyngrok import ngrok
+
                 ngrok.disconnect(ngrok_tunnel_url)
             except Exception:
                 pass  # Ignore cleanup errors
-    
+
     # Register cleanup for normal exit
     import atexit
+
     atexit.register(cleanup_ngrok)
-    
+
     # Use Popen instead of run for better signal control
     process = None
     try:
         # Run from CLI_ROOT so uvicorn can find server module
         process = subprocess.Popen(cmd, cwd=CLI_ROOT, env=env)
-        
+
         # Signal handler for Ctrl+C (must be defined after process is created)
         def signal_handler(sig, frame):
             """Handle SIGINT (Ctrl+C) to clean up both processes."""
@@ -670,10 +751,10 @@ def start(
                     process.kill()
             # Exit gracefully
             sys.exit(0)
-        
+
         # Register signal handler
         signal.signal(signal.SIGINT, signal_handler)
-        
+
         # Wait for process to complete
         process.wait()
     except KeyboardInterrupt:
@@ -705,7 +786,9 @@ app.add_typer(webhook_app, name="webhook")
 def webhook_dev(
     port: int = typer.Option(8000, "--port", "-p", help="Port to run webhook receiver"),
     vendor: str = typer.Option("all", "--vendor", "-v", help="Vendor to receive webhooks from"),
-    save: bool = typer.Option(True, "--save/--no-save", help="Save webhooks to __dev__/webhooks_recent.jsonl"),
+    save: bool = typer.Option(
+        True, "--save/--no-save", help="Save webhooks to __dev__/webhooks_recent.jsonl"
+    ),
 ):
     """
     Start webhook development server with recording.
@@ -721,7 +804,9 @@ def webhook_dev(
         console.print("💾 Recording webhooks to: [cyan]__dev__/webhooks_recent.jsonl[/cyan]")
 
     console.print()
-    console.print("[yellow]⚠️  Note: This is a development server with webhook recording enabled.[/yellow]")
+    console.print(
+        "[yellow]⚠️  Note: This is a development server with webhook recording enabled.[/yellow]"
+    )
     console.print("[yellow]   Use 'wear start dev' for full API functionality.[/yellow]")
     console.print()
 
@@ -771,15 +856,15 @@ def webhook_inspect(
 
     # Read webhooks
     webhooks = []
-    with open(webhooks_file, 'r') as f:
+    with open(webhooks_file, "r") as f:
         for line in f:
             try:
                 webhook = json.loads(line.strip())
 
                 # Apply filters
-                if vendor and webhook.get('vendor') != vendor:
+                if vendor and webhook.get("vendor") != vendor:
                     continue
-                if event_type and webhook.get('type') != event_type:
+                if event_type and webhook.get("type") != event_type:
                     continue
 
                 webhooks.append(webhook)
@@ -803,11 +888,11 @@ def webhook_inspect(
 
     for webhook in webhooks:
         table.add_row(
-            webhook.get('timestamp', 'N/A'),
-            webhook.get('vendor', 'N/A'),
-            webhook.get('type', 'N/A'),
-            webhook.get('user_id', 'N/A'),
-            webhook.get('resource_id', 'N/A'),
+            webhook.get("timestamp", "N/A"),
+            webhook.get("vendor", "N/A"),
+            webhook.get("type", "N/A"),
+            webhook.get("user_id", "N/A"),
+            webhook.get("resource_id", "N/A"),
         )
 
     console.print(table)
@@ -819,13 +904,21 @@ def webhook_inspect(
 # PULL Command - Manual Data Sync
 # ============================================================================
 
+
 @app.command()
 def pull(
     mode: str = typer.Argument("once", help="Mode: once or continuous"),
     vendor: str = typer.Option(..., "--vendor", "-v", help="Vendor to pull from (whoop, garmin)"),
     user_id: Optional[str] = typer.Option(None, "--user-id", "-u", help="Specific user ID to pull"),
-    since: Optional[str] = typer.Option(None, "--since", "-s", help="Time range (e.g., 2d, 1w, 2024-01-01)"),
-    limit: int = typer.Option(25, "--limit", "-n", help="Max records to fetch per resource type (max: 25)"),
+    since: Optional[str] = typer.Option(
+        None, "--since", "-s", help="Time range (e.g., 2d, 1w, 2024-01-01)"
+    ),
+    limit: int = typer.Option(
+        25, "--limit", "-n", help="Max records to fetch per resource type (max: 25)"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output file for raw events (NDJSON format, for Flux processing)"
+    ),
     verbose: bool = typer.Option(False, "--verbose", help="Show detailed output"),
 ):
     """
@@ -834,6 +927,7 @@ def pull(
     Examples:
         wear pull once --vendor whoop --since 2d
         wear pull once --vendor garmin --user-id abc123 --since 1w
+        wear pull once --vendor whoop --user-id abc123 --output raw.ndjson
     """
     console.print(f"📥 Triggering data pull from [bold]{vendor}[/bold]...")
 
@@ -850,21 +944,22 @@ def pull(
 
     # Build API request
     import httpx
-    
+
     def _parse_since_parameter(since_str: str) -> str:
         """Parse since parameter (e.g., '7d', '2w', '2024-01-01') to ISO8601."""
         from datetime import datetime, timedelta, timezone
+
         since_str = since_str.strip().lower()
-        
-        if since_str.endswith('d'):
+
+        if since_str.endswith("d"):
             days = int(since_str[:-1])
             dt = datetime.now(timezone.utc) - timedelta(days=days)
             return dt.isoformat()
-        elif since_str.endswith('w'):
+        elif since_str.endswith("w"):
             weeks = int(since_str[:-1])
             dt = datetime.now(timezone.utc) - timedelta(weeks=weeks)
             return dt.isoformat()
-        elif since_str.endswith('h'):
+        elif since_str.endswith("h"):
             hours = int(since_str[:-1])
             dt = datetime.now(timezone.utc) - timedelta(hours=hours)
             return dt.isoformat()
@@ -872,35 +967,37 @@ def pull(
             # Try parsing as ISO8601 date
             try:
                 # If it's just a date, add time
-                if 'T' not in since_str:
+                if "T" not in since_str:
                     since_str = f"{since_str}T00:00:00Z"
                 # Validate it's ISO8601
-                datetime.fromisoformat(since_str.replace('Z', '+00:00'))
+                datetime.fromisoformat(since_str.replace("Z", "+00:00"))
                 return since_str
             except ValueError:
                 # Default to 7 days ago if can't parse
                 dt = datetime.now(timezone.utc) - timedelta(days=7)
                 return dt.isoformat()
-    
+
     # Determine the correct endpoint based on service type
     # Local test APIs use: /v1/pull/{user_id}
     # Unified service uses: /v1/{vendor}-cloud/pull
     api_url = os.getenv("API_URL", "http://localhost:8000")
-    
+
     # Check if we're hitting a local test API (simpler routes)
     # For local test, we need user_id in the path
     if not user_id:
         console.print("[red]❌ --user-id is required for pull command[/red]")
-        console.print("   Example: [cyan]wear pull once --vendor whoop --user-id abc123 --since 7d[/cyan]")
+        console.print(
+            "   Example: [cyan]wear pull once --vendor whoop --user-id abc123 --since 7d[/cyan]"
+        )
         raise typer.Exit(1)
-    
+
     # Try local endpoint format first (for api_local.py)
     # Format: POST /v1/pull/{user_id}?since=...&limit=...
     local_endpoint = f"{api_url}/v1/pull/{user_id}"
-    
+
     # Unified service endpoint format
     unified_endpoint = f"{api_url}/v1/{vendor}-cloud/pull"
-    
+
     params = {
         "limit": limit,
     }
@@ -908,7 +1005,7 @@ def pull(
         # Parse since parameter to ISO8601 format if needed
         since_iso = _parse_since_parameter(since)
         params["since"] = since_iso
-    
+
     # Also add resource_types to pull all data types
     params["resource_types"] = ["recovery", "sleep", "workout", "cycle"]
 
@@ -923,14 +1020,18 @@ def pull(
         if profile_response.status_code == 200:
             profile_data = profile_response.json()
             if verbose:
-                console.print(f"[dim]✓ Profile verified: {profile_data.get('user_id', 'N/A')}[/dim]")
+                console.print(
+                    f"[dim]✓ Profile verified: {profile_data.get('user_id', 'N/A')}[/dim]"
+                )
         elif profile_response.status_code == 401:
             console.print("[red]❌ Authentication failed - tokens expired or invalid[/red]")
             console.print("   Please re-authenticate: [cyan]wear start dev --open-browser[/cyan]")
             raise typer.Exit(1)
         else:
             # Show warning for non-200/non-401 status codes
-            console.print(f"[yellow]⚠️  Profile check returned {profile_response.status_code}[/yellow]")
+            console.print(
+                f"[yellow]⚠️  Profile check returned {profile_response.status_code}[/yellow]"
+            )
             # Try to extract and show error details
             is_actual_401 = False
             try:
@@ -939,7 +1040,10 @@ def pull(
                     detail = error_data.get("detail")
                     if isinstance(detail, dict):
                         # Check if the underlying WHOOP API error is 401
-                        if "401" in str(detail.get("message", "")) or detail.get("status_code") == 401:
+                        if (
+                            "401" in str(detail.get("message", ""))
+                            or detail.get("status_code") == 401
+                        ):
                             is_actual_401 = True
                         error_msg = detail.get("message") or detail.get("error") or str(detail)
                     else:
@@ -948,18 +1052,26 @@ def pull(
                         console.print(f"   [dim]Error: {error_msg}[/dim]")
             except Exception:
                 # If JSON parsing fails, show first 200 chars of text
-                error_text = profile_response.text[:200] if profile_response.text else "No error details"
+                error_text = (
+                    profile_response.text[:200] if profile_response.text else "No error details"
+                )
                 if error_text:
                     console.print(f"   [dim]Response: {error_text}[/dim]")
-            
+
             # If the underlying error is 401, treat it as authentication issue
             if is_actual_401:
-                console.print(f"   [yellow]⚠️  Profile endpoint requires authentication - tokens may need refresh[/yellow]")
-                console.print(f"   [dim]Note: Pull operation may still work if tokens are valid for data endpoints[/dim]")
+                console.print(
+                    f"   [yellow]⚠️  Profile endpoint requires authentication - tokens may need refresh[/yellow]"
+                )
+                console.print(
+                    f"   [dim]Note: Pull operation may still work if tokens are valid for data endpoints[/dim]"
+                )
             else:
                 console.print(f"   [dim]Note: This is non-fatal - pull will continue anyway[/dim]")
     except httpx.RequestError as e:
-        console.print(f"[yellow]⚠️  Profile check failed: Could not connect to {profile_endpoint}[/yellow]")
+        console.print(
+            f"[yellow]⚠️  Profile check failed: Could not connect to {profile_endpoint}[/yellow]"
+        )
         console.print(f"   [dim]Error: {e}[/dim]")
         console.print(f"   [dim]Note: This is non-fatal - pull will continue anyway[/dim]")
     except Exception as e:
@@ -985,37 +1097,39 @@ def pull(
             data = response.json()
             console.print("[green]✅ Pull completed successfully![/green]")
             console.print()
-            
+
             # Display summary
-            total_records = data.get('total_records', 0)
-            pull_type = data.get('pull_type', 'unknown')
-            
+            total_records = data.get("total_records", 0)
+            pull_type = data.get("pull_type", "unknown")
+
             console.print(f"[bold]📊 Pull Summary:[/bold]")
             console.print(f"   Type:        [cyan]{pull_type}[/cyan]")
-            if data.get('since'):
+            if data.get("since"):
                 console.print(f"   Since:       [cyan]{data.get('since')}[/cyan]")
             console.print(f"   Total records: [bold]{total_records}[/bold]")
-            
+
             # Show breakdown by resource type if available
-            if 'results' in data:
+            if "results" in data:
                 console.print()
                 console.print("[bold]📦 Breakdown by resource:[/bold]")
-                for resource_type, result in data['results'].items():
-                    records = result.get('records', 0)
+                for resource_type, result in data["results"].items():
+                    records = result.get("records", 0)
                     if records > 0:
-                        console.print(f"   [green]✓ {resource_type:12}[/green] [cyan]{records:3}[/cyan] records")
+                        console.print(
+                            f"   [green]✓ {resource_type:12}[/green] [cyan]{records:3}[/cyan] records"
+                        )
                     else:
                         console.print(f"   [dim]  {resource_type:12}[/dim] [dim]0[/dim] records")
-            
+
             # Legacy fields (for compatibility)
-            if 'records_fetched' in data:
+            if "records_fetched" in data:
                 console.print()
                 console.print(f"📊 Records fetched: [bold]{data.get('records_fetched', 0)}[/bold]")
-            if 'records_stored' in data:
+            if "records_stored" in data:
                 console.print(f"💾 Records stored: [bold]{data.get('records_stored', 0)}[/bold]")
-            if 'duration_seconds' in data:
+            if "duration_seconds" in data:
                 console.print(f"⏱️  Duration: [bold]{data.get('duration_seconds', 0):.2f}s[/bold]")
-            
+
             # Warn if no records
             if total_records == 0:
                 console.print()
@@ -1023,19 +1137,52 @@ def pull(
                 console.print("   Possible reasons:")
                 console.print("   • No data in the specified time range")
                 console.print("   • User has no connected data")
-                console.print(f"   • Try a different time range: [cyan]wear pull once --vendor whoop --user-id {user_id} --since 30d[/cyan]")
-                
+                console.print(
+                    f"   • Try a different time range: [cyan]wear pull once --vendor whoop --user-id {user_id} --since 30d[/cyan]"
+                )
+
                 # Show detailed results for debugging
-                if verbose and 'results' in data:
+                if verbose and "results" in data:
                     console.print()
                     console.print("[bold]🔍 Detailed Results:[/bold]")
-                    for resource_type, result in data['results'].items():
-                        if 'error' in result:
+                    for resource_type, result in data["results"].items():
+                        if "error" in result:
                             console.print(f"   [red]✗ {resource_type}:[/red] {result['error']}")
                         else:
-                            records = result.get('records', 0)
+                            records = result.get("records", 0)
                             console.print(f"   [green]✓ {resource_type}:[/green] {records} records")
-                    
+
+            # Export to NDJSON if output file specified
+            if output and total_records > 0:
+                console.print()
+                console.print(f"[bold]📤 Exporting to NDJSON...[/bold]")
+                try:
+                    # Call export endpoint
+                    export_params = {"vendor": vendor, "limit": limit}
+                    if since:
+                        export_params["since"] = _parse_since_parameter(since)
+                    export_response = httpx.get(
+                        f"{api_url}/v1/data/{user_id}/export/raw",
+                        params=export_params,
+                        timeout=60.0,
+                    )
+                    if export_response.status_code == 200:
+                        output_path = Path(output)
+                        output_path.write_text(export_response.text)
+                        console.print(f"[green]✅ Exported to:[/green] [cyan]{output}[/cyan]")
+                        # Count lines (events)
+                        event_count = len([l for l in export_response.text.strip().split("\n") if l])
+                        console.print(f"   [dim]{event_count} raw events written[/dim]")
+                        console.print()
+                        console.print("[dim]💡 Process with Flux:[/dim]")
+                        console.print(f"   [cyan]flux transform --input {output} --output hsi.ndjson[/cyan]")
+                    else:
+                        console.print(f"[yellow]⚠️  Export failed: {export_response.status_code}[/yellow]")
+                        if verbose:
+                            console.print(f"   [dim]{export_response.text[:200]}[/dim]")
+                except Exception as e:
+                    console.print(f"[yellow]⚠️  Export failed: {e}[/yellow]")
+
         else:
             # Show error details
             console.print(f"[red]❌ Pull failed with status {response.status_code}[/red]")
@@ -1044,15 +1191,17 @@ def pull(
                 console.print(f"   Error: {error_data}")
             except:
                 console.print(f"   Response: {response.text[:500]}")
-            
+
             if verbose:
                 console.print()
                 console.print("[dim]Request details:[/dim]")
-                console.print(f"   Endpoint: {endpoint_used if 'endpoint_used' in locals() else local_endpoint}")
+                console.print(
+                    f"   Endpoint: {endpoint_used if 'endpoint_used' in locals() else local_endpoint}"
+                )
                 console.print(f"   Params: {params}")
-            
+
             raise typer.Exit(1)
-            
+
     except httpx.HTTPStatusError as e:
         console.print(f"[red]❌ HTTP error: {e.response.status_code}[/red]")
         try:
@@ -1075,7 +1224,129 @@ def pull(
         console.print(f"[red]❌ Unexpected error: {e}[/red]")
         if verbose:
             import traceback
+
             console.print(f"[dim]{traceback.format_exc()}[/dim]")
+        raise typer.Exit(1)
+
+
+# ============================================================================
+# EXPORT Command - Export Raw Events for Flux
+# ============================================================================
+
+
+@app.command()
+def export(
+    user_id: str = typer.Option(..., "--user-id", "-u", help="User ID to export data for"),
+    vendor: str = typer.Option(..., "--vendor", "-v", help="Vendor (whoop, garmin)"),
+    output: str = typer.Option(
+        "-", "--output", "-o", help="Output file (use '-' for stdout, default)"
+    ),
+    since: Optional[str] = typer.Option(
+        None, "--since", "-s", help="Time range (e.g., 2d, 1w, 2024-01-01)"
+    ),
+    limit: int = typer.Option(25, "--limit", "-n", help="Max records per resource type"),
+    device_id: Optional[str] = typer.Option(None, "--device-id", help="Override device ID"),
+    timezone: str = typer.Option("UTC", "--timezone", "-tz", help="User timezone (IANA format)"),
+    verbose: bool = typer.Option(False, "--verbose", help="Show detailed output"),
+):
+    """
+    Export wearable data as raw events (NDJSON) for Flux processing.
+
+    This command fetches data from the API and converts it to the wear.raw_event.v1
+    schema in NDJSON format, suitable for piping to the flux CLI.
+
+    Examples:
+        wear export --vendor whoop --user-id abc123 --output raw.ndjson
+        wear export --vendor whoop --user-id abc123 | flux transform --output hsi.ndjson
+        wear export --vendor garmin --user-id abc123 --since 7d > garmin_events.ndjson
+    """
+    import httpx
+    from datetime import datetime, timedelta, timezone as tz
+
+    api_url = os.getenv("API_URL", "http://localhost:8000")
+
+    def _parse_since_parameter(since_str: str) -> str:
+        """Parse since parameter to ISO8601."""
+        since_str = since_str.strip().lower()
+
+        if since_str.endswith("d"):
+            days = int(since_str[:-1])
+            dt = datetime.now(tz.utc) - timedelta(days=days)
+            return dt.isoformat()
+        elif since_str.endswith("w"):
+            weeks = int(since_str[:-1])
+            dt = datetime.now(tz.utc) - timedelta(weeks=weeks)
+            return dt.isoformat()
+        elif since_str.endswith("h"):
+            hours = int(since_str[:-1])
+            dt = datetime.now(tz.utc) - timedelta(hours=hours)
+            return dt.isoformat()
+        else:
+            if "T" not in since_str:
+                since_str = f"{since_str}T00:00:00Z"
+            return since_str
+
+    # Build export URL
+    export_url = f"{api_url}/v1/data/{user_id}/export/raw"
+    params = {
+        "vendor": vendor,
+        "limit": limit,
+        "timezone": timezone,
+    }
+    if since:
+        params["since"] = _parse_since_parameter(since)
+    if device_id:
+        params["device_id"] = device_id
+
+    # Show progress to stderr (so stdout can be piped)
+    if output == "-":
+        import sys
+
+        stderr = sys.stderr
+    else:
+        stderr = None
+
+    if verbose and stderr:
+        print(f"Fetching data from {export_url}...", file=stderr)
+
+    try:
+        response = httpx.get(export_url, params=params, timeout=120.0)
+
+        if response.status_code == 200:
+            ndjson = response.text
+
+            if output == "-":
+                # Output to stdout for piping
+                print(ndjson, end="")
+            else:
+                # Write to file
+                output_path = Path(output)
+                output_path.write_text(ndjson)
+
+                # Count events
+                event_count = len([l for l in ndjson.strip().split("\n") if l])
+                console.print(f"[green]✅ Exported {event_count} events to:[/green] [cyan]{output}[/cyan]")
+                console.print()
+                console.print("[dim]💡 Process with Flux:[/dim]")
+                console.print(f"   [cyan]flux transform --input {output} --output hsi.ndjson[/cyan]")
+                console.print(f"   [cyan]cat {output} | flux run[/cyan]")
+        else:
+            console.print(f"[red]❌ Export failed: {response.status_code}[/red]")
+            try:
+                error_data = response.json()
+                console.print(f"   Error: {error_data}")
+            except:
+                console.print(f"   Response: {response.text[:500]}")
+            raise typer.Exit(1)
+
+    except httpx.ConnectError:
+        console.print(f"[red]❌ Cannot connect to API at {api_url}[/red]")
+        console.print()
+        console.print("Make sure the server is running:")
+        console.print(f"  [cyan]wear start dev --vendor {vendor}[/cyan]")
+        raise typer.Exit(1)
+    except httpx.RequestError as e:
+        console.print(f"[red]❌ Request failed: {e}[/red]")
         raise typer.Exit(1)
 
 
@@ -1202,9 +1473,7 @@ def tokens_revoke(
         wear tokens revoke --vendor whoop --user-id abc123 --yes
     """
     if not confirm:
-        confirm = typer.confirm(
-            f"Are you sure you want to revoke tokens for {vendor}:{user_id}?"
-        )
+        confirm = typer.confirm(f"Are you sure you want to revoke tokens for {vendor}:{user_id}?")
         if not confirm:
             console.print("Cancelled.")
             raise typer.Exit(0)
@@ -1214,6 +1483,7 @@ def tokens_revoke(
 
     try:
         from synheart_cloud_connector.vendor_types import VendorType
+
         # VendorType enum values are lowercase ("whoop", "garmin")
         vendor_enum = VendorType(vendor.lower())
         token_key = f"{vendor_enum.value}:{user_id}"
@@ -1224,37 +1494,42 @@ def tokens_revoke(
 
     # Try to use local file-based storage first (for dev mode)
     tokens_file = REPO_ROOT / "__dev__" / "tokens.json"
-    
+
     # Check if local tokens file exists and we're not explicitly using DynamoDB
     table_name = os.getenv("DYNAMODB_TABLE", "test_cloud_connector_tokens")
-    use_dynamodb = os.getenv("USE_DYNAMODB", "false").lower() == "true" or table_name != "test_cloud_connector_tokens"
-    
+    use_dynamodb = (
+        os.getenv("USE_DYNAMODB", "false").lower() == "true"
+        or table_name != "test_cloud_connector_tokens"
+    )
+
     if tokens_file.exists() and not use_dynamodb:
         # Use local file-based token storage
         console.print(f"[dim]Using local token storage: {tokens_file}[/dim]")
         try:
             import json
-            
+
             # Load tokens from file
-            with open(tokens_file, 'r') as f:
+            with open(tokens_file, "r") as f:
                 tokens_data = json.load(f)
-            
+
             if token_key not in tokens_data:
                 console.print(f"[yellow]⚠️  No tokens found for {vendor}:{user_id}[/yellow]")
-                console.print("   [dim]Tokens may have already been revoked or never existed.[/dim]")
+                console.print(
+                    "   [dim]Tokens may have already been revoked or never existed.[/dim]"
+                )
                 return
-            
+
             # Remove the token
             del tokens_data[token_key]
-            
+
             # Save back to file
-            with open(tokens_file, 'w') as f:
+            with open(tokens_file, "w") as f:
                 json.dump(tokens_data, f, indent=2)
-            
+
             console.print("[green]✅ Tokens revoked successfully[/green]")
             console.print(f"   [dim]Removed from: {tokens_file}[/dim]")
             return
-            
+
         except typer.Exit:
             # Re-raise typer.Exit exceptions (for early returns)
             raise
@@ -1265,9 +1540,10 @@ def tokens_revoke(
             console.print(f"[red]❌ Error managing local tokens: {e}[/red]")
             if verbose:
                 import traceback
+
                 console.print(f"[dim]{traceback.format_exc()}[/dim]")
             raise typer.Exit(1)
-    
+
     # Otherwise, try DynamoDB TokenStore
     try:
         from synheart_cloud_connector.tokens import TokenStore
@@ -1305,17 +1581,25 @@ def tokens_revoke(
     except Exception as e:
         console.print(f"[red]❌ Error: {e}[/red]")
         # Show more details if it's a TokenError or has underlying cause
-        if hasattr(e, '__cause__') and e.__cause__:
+        if hasattr(e, "__cause__") and e.__cause__:
             underlying_error = e.__cause__
-            error_code = getattr(underlying_error, 'response', {}).get('Error', {}).get('Code', 'Unknown')
-            error_message = getattr(underlying_error, 'response', {}).get('Error', {}).get('Message', str(underlying_error))
+            error_code = (
+                getattr(underlying_error, "response", {}).get("Error", {}).get("Code", "Unknown")
+            )
+            error_message = (
+                getattr(underlying_error, "response", {})
+                .get("Error", {})
+                .get("Message", str(underlying_error))
+            )
             console.print(f"   [dim]Error Code: {error_code}[/dim]")
             console.print(f"   [dim]Details: {error_message}[/dim]")
             # Common DynamoDB errors
             if error_code == "ResourceNotFoundException":
                 console.print()
                 console.print("[yellow]💡 The DynamoDB table doesn't exist.[/yellow]")
-                console.print(f"   For local development, tokens are stored in: [cyan]{tokens_file}[/cyan]")
+                console.print(
+                    f"   For local development, tokens are stored in: [cyan]{tokens_file}[/cyan]"
+                )
                 console.print(f"   Try using file-based token management instead.")
                 console.print()
                 console.print(f"   Or set up DynamoDB: [cyan]DYNAMODB_TABLE=your_table_name[/cyan]")
@@ -1324,6 +1608,7 @@ def tokens_revoke(
                 console.print("[yellow]💡 Invalid table structure or key format.[/yellow]")
         if verbose:
             import traceback
+
             console.print()
             console.print("[dim]Full traceback:[/dim]")
             console.print(f"[dim]{traceback.format_exc()}[/dim]")
@@ -1351,7 +1636,9 @@ def service(
     console.print("[bold]We're focusing on local development first![/bold]")
     console.print()
     console.print("For now, use local development mode:")
-    console.print(f"   [cyan]wear start dev --vendor {service_name.split('-')[0] if '-' in service_name else 'all'}[/cyan]")
+    console.print(
+        f"   [cyan]wear start dev --vendor {service_name.split('-')[0] if '-' in service_name else 'all'}[/cyan]"
+    )
     console.print()
     console.print("Production deployment will be available in a future release.")
     console.print()
@@ -1392,6 +1679,7 @@ def destroy(
 # ============================================================================
 # VERSION Command
 # ============================================================================
+
 
 @app.command()
 def version():

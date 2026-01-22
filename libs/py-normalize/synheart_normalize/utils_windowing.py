@@ -227,9 +227,7 @@ def interpolate_missing_samples(
                 interpolated_hr = None
                 if current.hr_bpm is not None and next_sample.hr_bpm is not None:
                     ratio = j / (num_missing + 1)
-                    interpolated_hr = current.hr_bpm + (
-                        next_sample.hr_bpm - current.hr_bpm
-                    ) * ratio
+                    interpolated_hr = current.hr_bpm + (next_sample.hr_bpm - current.hr_bpm) * ratio
 
                 # Create interpolated sample
                 interpolated = SynheartSample(

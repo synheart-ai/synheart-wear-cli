@@ -203,25 +203,25 @@ class WhoopConnector(CloudConnectorBase):
     def _normalize_date_for_whoop(self, date_str: str) -> str:
         """
         Normalize date to WHOOP-compatible RFC3339 format.
-        
+
         WHOOP API expects: YYYY-MM-DDTHH:MM:SSZ (no microseconds, Z suffix)
         """
         from datetime import datetime, timezone
-        
+
         # Parse the date string
         if isinstance(date_str, str):
             # Handle Z suffix and +00:00
-            date_str = date_str.replace('Z', '+00:00')
+            date_str = date_str.replace("Z", "+00:00")
             dt = datetime.fromisoformat(date_str)
         else:
             dt = date_str
-        
+
         # Ensure timezone-aware
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        
+
         # Format as RFC3339: YYYY-MM-DDTHH:MM:SSZ (no microseconds)
-        return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     async def fetch_recovery_collection(
         self,
@@ -276,8 +276,9 @@ class WhoopConnector(CloudConnectorBase):
                     error_detail += f" - {error_body}"
                 except:
                     error_detail += f" - {response.text[:500]}"
-            
+
             from synheart_cloud_connector.exceptions import VendorAPIError
+
             raise VendorAPIError(
                 error_detail,
                 vendor=self.vendor.value,
@@ -326,8 +327,9 @@ class WhoopConnector(CloudConnectorBase):
                     error_detail += f" - {error_body}"
                 except:
                     error_detail += f" - {response.text[:500]}"
-            
+
             from synheart_cloud_connector.exceptions import VendorAPIError
+
             raise VendorAPIError(
                 error_detail,
                 vendor=self.vendor.value,
@@ -376,8 +378,9 @@ class WhoopConnector(CloudConnectorBase):
                     error_detail += f" - {error_body}"
                 except:
                     error_detail += f" - {response.text[:500]}"
-            
+
             from synheart_cloud_connector.exceptions import VendorAPIError
+
             raise VendorAPIError(
                 error_detail,
                 vendor=self.vendor.value,
@@ -426,8 +429,9 @@ class WhoopConnector(CloudConnectorBase):
                     error_detail += f" - {error_body}"
                 except:
                     error_detail += f" - {response.text[:500]}"
-            
+
             from synheart_cloud_connector.exceptions import VendorAPIError
+
             raise VendorAPIError(
                 error_detail,
                 vendor=self.vendor.value,
@@ -455,6 +459,7 @@ class WhoopConnector(CloudConnectorBase):
                 return response.json()
 
             from synheart_cloud_connector.exceptions import VendorAPIError
+
             raise VendorAPIError(
                 f"WHOOP API error: {response.status_code}",
                 vendor=self.vendor.value,

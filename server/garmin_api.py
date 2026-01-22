@@ -81,7 +81,7 @@ v1_router = APIRouter(prefix="/v1", tags=["v1"])
 async def health_check() -> dict[str, Any]:
     """
     Health check endpoint per RFC A.1.4.
-    
+
     Returns:
         Health status with version and service checks
     """
@@ -93,21 +93,21 @@ async def health_check() -> dict[str, Any]:
         checks["dynamodb"] = "ok"
     except Exception:
         checks["dynamodb"] = "error"
-    
+
     try:
         # Check SQS (via queue)
         # Basic check - in production, verify queue exists
         checks["sqs"] = "ok"
     except Exception:
         checks["sqs"] = "error"
-    
+
     try:
         # Check KMS
         # Basic check - in production, verify key exists
         checks["kms"] = "ok"
     except Exception:
         checks["kms"] = "error"
-    
+
     return {
         "status": "healthy",
         "version": "0.1.1",
@@ -149,7 +149,7 @@ async def oauth_callback_get(
 ) -> dict[str, Any]:
     """
     Handle OAuth callback via GET (RFC A.1.1 - standard OAuth2 flow).
-    
+
     This endpoint receives the OAuth redirect from Garmin with query parameters.
 
     Returns:
@@ -164,7 +164,9 @@ async def oauth_callback_get(
         if not redirect_uri:
             raise HTTPException(
                 status_code=400,
-                detail={"error": {"code": "invalid_request", "message": "Redirect URI not configured"}},
+                detail={
+                    "error": {"code": "invalid_request", "message": "Redirect URI not configured"}
+                },
             )
 
         # Exchange code for tokens
@@ -225,7 +227,7 @@ async def oauth_callback_post(request: Request) -> dict[str, Any]:
 
         # Validate state parameter (basic CSRF check)
         # In production, validate state against stored session
-        
+
         # Exchange code for tokens
         tokens = await garmin.exchange_code(
             user_id=user_id,
@@ -407,4 +409,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
