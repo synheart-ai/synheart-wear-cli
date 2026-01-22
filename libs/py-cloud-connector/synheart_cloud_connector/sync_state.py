@@ -24,12 +24,15 @@ from datetime import UTC, datetime
 # Lazy import boto3 - only import when actually needed
 try:
     from botocore.exceptions import ClientError
+
     HAS_BOTO3 = True
 except ImportError:
     HAS_BOTO3 = False
+
     # Create dummy classes for type hints when boto3 is not available
     class ClientError(Exception):
         pass
+
 
 from pydantic import BaseModel
 
@@ -50,6 +53,7 @@ class SyncCursor(BaseModel):
         created_at: Cursor creation timestamp
         updated_at: Last update timestamp
     """
+
     vendor: str
     user_id: str
     last_sync_ts: str  # ISO8601 UTC timestamp
@@ -99,6 +103,7 @@ class SyncState:
                     "For local development, use LOCAL_MODE=true or MockSyncState instead."
                 )
             import boto3  # Import here to ensure it's available
+
             self.dynamodb = boto3.resource("dynamodb", region_name=self.region)
             self.table = self.dynamodb.Table(self.table_name)
 
@@ -135,9 +140,7 @@ class SyncState:
 
         try:
             # Get from DynamoDB
-            response = self.table.get_item(
-                Key={"pk": pk, "sk": sk}
-            )
+            response = self.table.get_item(Key={"pk": pk, "sk": sk})
 
             if "Item" not in response:
                 return None
@@ -246,9 +249,7 @@ class SyncState:
 
         try:
             # Delete from DynamoDB
-            self.table.delete_item(
-                Key={"pk": pk, "sk": sk}
-            )
+            self.table.delete_item(Key={"pk": pk, "sk": sk})
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "Unknown")
@@ -292,29 +293,27 @@ class SyncState:
             if vendor:
                 # Filter by vendor prefix
                 scan_params["FilterExpression"] = "begins_with(pk, :prefix)"
-                scan_params["ExpressionAttributeValues"] = {
-                    ":prefix": f"SYNC#{vendor.value}#"
-                }
+                scan_params["ExpressionAttributeValues"] = {":prefix": f"SYNC#{vendor.value}#"}
             else:
                 # Filter for all SYNC# keys
                 scan_params["FilterExpression"] = "begins_with(pk, :prefix)"
-                scan_params["ExpressionAttributeValues"] = {
-                    ":prefix": "SYNC#"
-                }
+                scan_params["ExpressionAttributeValues"] = {":prefix": "SYNC#"}
 
             response = self.table.scan(**scan_params)
 
             cursors = []
             for item in response.get("Items", []):
-                cursors.append(SyncCursor(
-                    vendor=item["vendor"],
-                    user_id=item["user_id"],
-                    last_sync_ts=item["last_sync_ts"],
-                    records_synced=item.get("records_synced", 0),
-                    last_resource_id=item.get("last_resource_id"),
-                    created_at=item["created_at"],
-                    updated_at=item["updated_at"],
-                ))
+                cursors.append(
+                    SyncCursor(
+                        vendor=item["vendor"],
+                        user_id=item["user_id"],
+                        last_sync_ts=item["last_sync_ts"],
+                        records_synced=item.get("records_synced", 0),
+                        last_resource_id=item.get("last_resource_id"),
+                        created_at=item["created_at"],
+                        updated_at=item["updated_at"],
+                    )
+                )
 
             return cursors
 

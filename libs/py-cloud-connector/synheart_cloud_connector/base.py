@@ -62,9 +62,7 @@ class CloudConnectorBase(ABC):
 
         # Initialize webhook verifier if secret provided
         self.webhook_verifier = (
-            WebhookVerifier(config.webhook_secret)
-            if config.webhook_secret
-            else None
+            WebhookVerifier(config.webhook_secret) if config.webhook_secret else None
         )
 
         # Configure rate limiting if provided

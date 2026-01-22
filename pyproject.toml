@@ -104,6 +104,7 @@ exclude = '''
 /(
     \.git
   | \.venv
+  | \.venv-ci
   | __pycache__
   | __dev__
   | build
@@ -133,6 +134,7 @@ ignore = [
 exclude = [
     ".git",
     ".venv",
+    ".venv-ci",
     "__pycache__",
     "__dev__",
     "build",

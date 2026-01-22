@@ -30,6 +30,7 @@ ENV/
 env.bak/
 venv.bak/
 .venv/
+.venv-ci/
 
 # IDE
 .vscode/
@@ -95,3 +96,4 @@ Thumbs.db
 synheart_wear_cli.egg-info/
 
 TODO.md
+FLUX_INTEGRATION.md

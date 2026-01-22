@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://pepy.tech/badge/synheart-wear-cli)](https://pepy.tech/project/synheart-wear-cli)
 
-**All-in-one local development tool for cloud wearable integrations** — Complete CLI + FastAPI server + ngrok integration for WHOOP, Garmin, and Fitbit testing.
+**All-in-one local development tool for cloud wearable integrations** — Complete CLI + FastAPI server + ngrok integration for WHOOP, Garmin, and Fitbit testing. Includes optional **Synheart Flux** integration for HSI-compliant data processing.
 
 
 
@@ -25,6 +25,7 @@ The Synheart Wear CLI combines a **command-line interface** with an **embedded F
 - 🌐 Automatic ngrok tunnel exposure
 - 💾 Local token storage (dev mode) or DynamoDB + KMS (production)
 - 📊 Data normalization to Synheart format
+- ⚡ **Flux HSI Processing** (optional): Convert vendor data to HSI-compliant JSON using Synheart Flux
 
 **Perfect for:**
 - Testing SDK integrations locally
@@ -72,7 +73,37 @@ python3 wear.py --help
 wear --help
 ```
 
-**Note:** All required libraries are automatically installed. No separate cloning needed.
+**Note:** All required Python libraries are automatically installed. **Flux integration is optional** and requires a separate `flux` binary (details below).
+
+### 1b. (Optional) Enable Flux HSI Processing
+
+Flux is a Rust CLI used (optionally) to transform vendor data into **HSI-compliant** outputs. Wear CLI enables it when:
+
+- You pass `--use-flux` (sets `USE_FLUX=true` for the server process), and
+- A `flux` executable is discoverable via:
+  1) `SYNHEART_FLUX_PATH` (explicit)
+  2) `./bin/` (repo-local, e.g. `bin/flux-macos-arm64`, `bin/flux-macos-x64`, or `bin/flux`)
+  3) `~/.synheart/bin/`
+  4) your `PATH` (`flux`)
+
+**Build from a local `synheart-flux` checkout (recommended for dev):**
+
+```bash
+# If synheart-flux is a sibling repo:
+./scripts/build-flux.sh
+
+# Or specify its location explicitly:
+FLUX_ROOT="/path/to/synheart-flux" ./scripts/build-flux.sh
+
+# Optional: set explicit binary path (otherwise ./bin is auto-detected)
+export SYNHEART_FLUX_PATH="$PWD/bin/flux"
+```
+
+Then start the server with Flux enabled:
+
+```bash
+wear start dev --vendor whoop --use-flux
+```
 
 ### 2. Configure ngrok
 
@@ -89,6 +120,7 @@ Create `.env.local` in the CLI directory:
 # WHOOP Credentials
 WHOOP_CLIENT_ID=your_whoop_client_id
 WHOOP_CLIENT_SECRET=your_whoop_client_secret
+WHOOP_WEBHOOK_SECRET=your_whoop_webhook_secret
 
 # AWS (optional - for production token storage)
 AWS_REGION=us-east-1
@@ -108,6 +140,9 @@ python3 wear.py start dev --vendor whoop --port 8000
 
 # Or with auto-open browser for OAuth:
 python3 wear.py start dev --vendor whoop --open-browser
+
+# Enable Flux HSI processing (optional):
+python3 wear.py start dev --vendor whoop --use-flux
 
 # The CLI will automatically:
 # ✅ Start local FastAPI server
@@ -178,6 +213,7 @@ python3 wear.py start dev --vendor whoop --verbose
 - `--env` - Environment file to load (`.env.local`, `.env.production`)
 - `--open-browser` - Automatically open OAuth authorization URL
 - `--webhook-record/--no-webhook-record` - Enable webhook recording (default: enabled)
+- `--use-flux/--no-flux` - Enable optional Flux HSI processing (see `FLUX_INTEGRATION.md`)
 - `--verbose` - Enable verbose logging
 
 **What it does:**
@@ -192,39 +228,35 @@ python3 wear.py start dev --vendor whoop --verbose
 Pull data from vendor cloud API (requires OAuth connection first).
 
 ```bash
-# Pull WHOOP recovery data (last 7 days)
-python3 wear.py pull once --vendor whoop --since 7d
+# Pull WHOOP data for a specific user (required)
+wear pull once --vendor whoop --user-id abc123 --since 7d
 
-# Pull specific data types
-python3 wear.py pull once --vendor whoop --since 30d --data-types recovery,sleep,workouts
+# Pull Garmin data for a specific user
+wear pull once --vendor garmin --user-id abc123 --since 14d
 
-# Pull from specific user
-python3 wear.py pull once --vendor whoop --user-id abc123 --since 14d
+# Override the API base URL (if your server is not on localhost:8000)
+API_URL="http://localhost:8001" wear pull once --vendor whoop --user-id abc123 --since 30d
 ```
 
 **Options:**
 - `--vendor` - Vendor to pull from (required)
-- `--since` - Time range (e.g., `7d`, `30d`, `2h`)
-- `--data-types` - Comma-separated data types (recovery, sleep, workouts, cycles)
-- `--user-id` - Specific user ID (optional)
+- `--user-id` - Specific user ID (**required**)
+- `--since` - Time range (e.g., `7d`, `2w`, `2h`, `2024-01-01`)
+- `--limit` - Max records per resource type (default: 25)
 
 ### `wear tokens` - Manage OAuth Tokens
 
 List, refresh, or revoke OAuth tokens.
 
 ```bash
-# List all tokens
-python3 wear.py tokens list
-
-# List tokens for specific vendor
-python3 wear.py tokens list --vendor whoop
-
-# Refresh expired token
-python3 wear.py tokens refresh --vendor whoop --user-id abc123
-
 # Revoke token (disconnect user)
-python3 wear.py tokens revoke --vendor whoop --user-id abc123
+wear tokens revoke --vendor whoop --user-id abc123 --yes
 ```
+
+**Note:** In `v0.1.1`, `wear tokens list` and `wear tokens refresh` are present but not fully implemented yet. Token revocation works against:
+
+- `__dev__/tokens.json` in local dev mode (default), or
+- DynamoDB when configured (e.g., `DYNAMODB_TABLE`, `KMS_KEY_ID`) and enabled.
 
 ### `wear webhook` - Webhook Management
 
@@ -304,7 +336,7 @@ val whoopProvider = WhoopProvider(
 Once connected, fetch data from your app or use the CLI:
 
 ```bash
-python3 wear.py pull once --vendor whoop --since 7d
+wear pull once --vendor whoop --user-id abc123 --since 7d
 ```
 
 ### 5. Test Webhooks
@@ -312,7 +344,7 @@ python3 wear.py pull once --vendor whoop --since 7d
 Webhooks are automatically recorded to `__dev__/webhooks_recent.jsonl`:
 
 ```bash
-python3 wear.py webhook inspect --limit 10
+wear webhook inspect --limit 10
 ```
 
 ## 📡 API Endpoints
@@ -428,6 +460,13 @@ Data normalization utilities for converting vendor-specific formats to Synheart 
 - `NormalizedData`: Common data structure for all vendors
 
 See [libs/py-normalize/README.md](libs/py-normalize/README.md)
+
+### Flux (HSI Processing)
+
+Wear CLI integrates with **Synheart Flux (Rust)** for transformation/windowing/scoring. The target architecture is **binary-based** (subprocess) to avoid Python bindings and ABI issues.
+
+- **Integration design**: see `FLUX_INTEGRATION.md`
+- **Local development**: `--use-flux` enables optional Flux processing hooks where available
 
 ## 🔗 Links
 
