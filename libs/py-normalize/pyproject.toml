@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synheart-normalize"
-version = "0.1.1"
+version = "0.1.2"
 description = "Data normalization library for Synheart wearable integrations"
 authors = [
     {name = "Israel Goytom", email = "israel@synheart.ai"}

@@ -3,6 +3,6 @@
 from .schema import SynheartSample
 from .to_synheart import normalize_to_synheart
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = ["SynheartSample", "normalize_to_synheart"]
