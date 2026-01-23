@@ -253,7 +253,7 @@ List, refresh, or revoke OAuth tokens.
 wear tokens revoke --vendor whoop --user-id abc123 --yes
 ```
 
-**Note:** In `v0.1.1`, `wear tokens list` and `wear tokens refresh` are present but not fully implemented yet. Token revocation works against:
+**Note:** In `v0.1.2`, `wear tokens list` and `wear tokens refresh` are present but not fully implemented yet. Token revocation works against:
 
 - `__dev__/tokens.json` in local dev mode (default), or
 - DynamoDB when configured (e.g., `DYNAMODB_TABLE`, `KMS_KEY_ID`) and enabled.

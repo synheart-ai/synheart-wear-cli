@@ -242,7 +242,7 @@ except ImportError:
 app = FastAPI(
     title="WHOOP Cloud Connector (Local Dev)",
     description="Local development version with mocked AWS services",
-    version="0.1.1-local",
+    version="0.1.2-local",
 )
 
 # Load configuration from test environment
@@ -294,7 +294,7 @@ async def health_check() -> dict[str, Any]:
     """Health check endpoint."""
     health_data = {
         "status": "healthy",
-        "version": "0.1.1-local",
+        "version": "0.1.2-local",
         "service": "whoop-cloud-connector",
         "mode": "local_dev",
         "checks": {

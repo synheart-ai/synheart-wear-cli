@@ -40,7 +40,7 @@ if (CLI_ROOT / "libs" / "py-normalize").exists():
 try:
     from __version__ import __version__
 except ImportError:
-    __version__ = "0.1.1"
+    __version__ = "0.1.2"
 
 console = Console()
 

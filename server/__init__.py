@@ -11,4 +11,4 @@ Modules:
 - whoop_connector: WHOOP connector logic
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
